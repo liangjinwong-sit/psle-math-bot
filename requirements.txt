@@ -1,0 +1,10 @@
+datasets
+langchain
+langchain-community
+langchain-openai
+faiss-cpu
+sentence-transformers
+pypdf
+streamlit
+python-dotenv
+openai
