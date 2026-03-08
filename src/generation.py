@@ -1,15 +1,15 @@
 import os
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
 from src.retrieval import get_retriever
 
 load_dotenv()
 
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.0-flash",
     temperature=0.2,
-    openai_api_key=os.getenv("OPENAI_API_KEY"),
+    google_api_key=os.getenv("GOOGLE_API_KEY"),
 )
 
 PROMPT_TEMPLATE = """\

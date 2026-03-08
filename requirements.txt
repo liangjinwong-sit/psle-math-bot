@@ -1,10 +1,9 @@
 datasets
 langchain
 langchain-community
-langchain-openai
+langchain-google-genai
 faiss-cpu
 sentence-transformers
 pypdf
 streamlit
 python-dotenv
-openai

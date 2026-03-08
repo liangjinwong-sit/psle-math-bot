@@ -1,5 +1,5 @@
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 
 INDEX_PATH = "index/psle_faiss"
 
