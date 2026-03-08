@@ -1,9 +1,5 @@
 import os
-<<<<<<< Updated upstream
-from datasets import load_dataset
-=======
 from glob import glob
->>>>>>> Stashed changes
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter

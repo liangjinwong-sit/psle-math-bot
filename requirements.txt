@@ -1,12 +1,8 @@
 langchain
 langchain-core
 langchain-community
-<<<<<<< Updated upstream
-langchain-google-genai
-=======
-langchain-openai
 langchain-text-splitters
->>>>>>> Stashed changes
+langchain-huggingface
 faiss-cpu
 sentence-transformers
 pypdf

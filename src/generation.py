@@ -1,25 +1,10 @@
-<<<<<<< Updated upstream
-import os
-from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
-from src.retrieval import get_retriever
-
-load_dotenv()
-
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    temperature=0.2,
-    google_api_key=os.getenv("GOOGLE_API_KEY"),
-=======
 from src.router import route_question
 from src.retrieval import load_index
 from src.solvers import solve_question_by_route
 
 UNSUPPORTED_MESSAGE = (
-    "I’m sorry, but I can’t answer this reliably with the current local solver and notes.\n\n"
+    "I'm sorry, but I can't answer this reliably with the current local solver and notes.\n\n"
     "Please try a clearer P5/P6 question from the supported PSLE topic families."
->>>>>>> Stashed changes
 )
 
 TOPIC_SOURCE_HINTS = {
