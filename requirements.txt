@@ -1,7 +1,12 @@
-datasets
 langchain
+langchain-core
 langchain-community
+<<<<<<< Updated upstream
 langchain-google-genai
+=======
+langchain-openai
+langchain-text-splitters
+>>>>>>> Stashed changes
 faiss-cpu
 sentence-transformers
 pypdf
