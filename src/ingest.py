@@ -1,28 +1,37 @@
 from datasets import load_dataset
 from langchain_core.documents import Document
+from src.topic_classifier import classify_question
 
 
 def load_gsm8k_docs(split="train", limit=None):
     """
-    Load the GSM8K dataset (Grade School Math 8K).
+    Load the GSM8K dataset and classify into PSLE topics.
     
     This dataset contains 8.5K high quality grade school math word problems
-    with step-by-step solutions.
+    with step-by-step solutions. Each question is automatically classified
+    into one of 6 PSLE math topics.
     
     Args:
         split: "train" or "test"
         limit: Maximum number of documents to load (None = load all)
     
     Returns:
-        List of LangChain Documents with question and solution
+        List of LangChain Documents with question, solution, and topic metadata
     """
     dataset = load_dataset("openai/gsm8k", "main", split=split)
     docs = []
+    
+    # Track topic distribution
+    topic_counts = {}
     
     max_docs = len(dataset) if limit is None else min(limit, len(dataset))
     
     for i in range(max_docs):
         row = dataset[i]
+        
+        # Classify question into PSLE topic
+        topic = classify_question(row["question"])
+        topic_counts[topic] = topic_counts.get(topic, 0) + 1
         
         # Extract the solution (remove the final answer after ####)
         full_answer = row["answer"]
@@ -38,6 +47,7 @@ def load_gsm8k_docs(split="train", limit=None):
                 "source": "gsm8k",
                 "split": split,
                 "id": i,
+                "topic": topic,  # PSLE topic classification
                 "question": row["question"],
                 "answer": final_answer,
             },
@@ -45,6 +55,10 @@ def load_gsm8k_docs(split="train", limit=None):
         docs.append(doc)
     
     print(f"[ingest] Loaded {len(docs)} documents from GSM8K {split} split.")
+    print(f"[ingest] Topic distribution:")
+    for topic, count in sorted(topic_counts.items(), key=lambda x: x[1], reverse=True):
+        print(f"  - {topic}: {count} ({count/len(docs)*100:.1f}%)")
+    
     return docs
 
 
