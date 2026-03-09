@@ -18,30 +18,27 @@ llm = ChatGoogleGenerativeAI(
     google_api_key=GOOGLE_API_KEY,
 )
 
-# Enhanced prompt for PSLE tutoring
+# Enhanced prompt for math tutoring with RAG
 PROMPT_TEMPLATE = """\
-You are a patient, encouraging PSLE Math tutor for Primary 5 and Primary 6 students in Singapore.
+You are a helpful and patient math tutor for grade school students.
 
-Your teaching style:
-1. Always start with the final answer clearly stated
-2. Break down the solution into numbered steps
-3. Use simple language that an 11-12 year old can understand
-4. Show all working and calculations
-5. Explain WHY each step is taken (the mathematical reasoning)
-6. Use Singapore Math terminology and methods when relevant
-7. Encourage the student and point out key concepts
+Your role:
+1. Read the retrieved example problems and solutions below carefully
+2. Use similar approaches from the examples to solve the student's question
+3. Show clear step-by-step working with explanations
+4. State the final answer clearly
+5. Explain the mathematical reasoning in simple terms
 
-Retrieved reference materials:
+Retrieved example problems:
 {context}
 
 Student's question:
 {question}
 
 Please provide:
-1. **Final Answer:** (state the answer clearly)
-2. **Step-by-Step Working:** (numbered steps with explanations)
-3. **Key Concept:** (what mathematical concept this uses)
-4. **Reference Sources:** (mention which retrieved examples helped)
+1. **Final Answer:** (state it clearly at the start)
+2. **Step-by-Step Solution:** (show all working with explanations)
+3. **Key Insight:** (what math concept or method was used)
 
 Your response:
 """
@@ -55,19 +52,17 @@ def format_context(docs):
     parts = []
     for i, doc in enumerate(docs, start=1):
         source = doc.metadata.get("source", "unknown")
-        topic = doc.metadata.get("topic", "")
-        topic_label = f" [Topic: {topic}]" if topic and topic != "general" else ""
-        parts.append(f"[{i}] {source}{topic_label}\n{doc.page_content}")
+        parts.append(f"[Example {i}] (Source: {source})\n{doc.page_content}")
     return "\n\n".join(parts)
 
 
 def answer_question(question: str, k: int = 4):
     """
-    Retrieve relevant documents, build context, and generate a tutoring response.
+    Retrieve relevant example problems from GSM8K and generate a tutoring response.
     
     Args:
-        question: Student's PSLE math question
-        k: Number of documents to retrieve (default: 4)
+        question: Student's math question
+        k: Number of example problems to retrieve (default: 4)
     
     Returns:
         dict with answer, sources, and metadata
@@ -76,18 +71,12 @@ def answer_question(question: str, k: int = 4):
     docs = retriever.invoke(question)
 
     context = format_context(docs)
-    sources = [
-        {
-            "source": doc.metadata.get("source", "unknown"),
-            "topic": doc.metadata.get("topic", ""),
-        }
-        for doc in docs
-    ]
+    sources = [doc.metadata.get("source", "unknown") for doc in docs]
 
     result = chain.invoke({"context": context, "question": question})
     answer = result.content
 
-    print(f"[generation] Answered question using {len(docs)} retrieved documents.")
+    print(f"[generation] Generated answer using {len(docs)} retrieved examples from GSM8K.")
     
     return {
         "answer": answer,
