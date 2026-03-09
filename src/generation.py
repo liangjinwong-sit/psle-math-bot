@@ -1,122 +1,96 @@
-from src.router import route_question
-from src.retrieval import load_index
-from src.solvers import solve_question_by_route
+import os
+from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from src.retrieval import get_retriever
 
-UNSUPPORTED_MESSAGE = (
-    "I'm sorry, but I can't answer this reliably with the current local solver and notes.\n\n"
-    "Please try a clearer P5/P6 question from the supported PSLE topic families."
+load_dotenv()
+
+# Check if API key is available
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY or GOOGLE_API_KEY == "your_api_key_here":
+    print("⚠️  GOOGLE_API_KEY not set. Please add it to your .env file.")
+    print("   Get your free API key at: https://aistudio.google.com/app/apikey")
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",
+    temperature=0.2,
+    google_api_key=GOOGLE_API_KEY,
 )
 
-TOPIC_SOURCE_HINTS = {
-    "fractions_decimals": ["fraction", "decimal", "fractions", "decimals"],
-    "percentage": ["percentage", "percent"],
-    "ratio_proportion": ["ratio", "proportion"],
-    "rate": ["rate", "unit", "speed", "cost"],
-    "measurement": ["measurement", "area", "perimeter", "volume"],
-    "data_handling": ["data", "mean", "average", "graph", "table"],
-}
+# Enhanced prompt for PSLE tutoring
+PROMPT_TEMPLATE = """\
+You are a patient, encouraging PSLE Math tutor for Primary 5 and Primary 6 students in Singapore.
+
+Your teaching style:
+1. Always start with the final answer clearly stated
+2. Break down the solution into numbered steps
+3. Use simple language that an 11-12 year old can understand
+4. Show all working and calculations
+5. Explain WHY each step is taken (the mathematical reasoning)
+6. Use Singapore Math terminology and methods when relevant
+7. Encourage the student and point out key concepts
+
+Retrieved reference materials:
+{context}
+
+Student's question:
+{question}
+
+Please provide:
+1. **Final Answer:** (state the answer clearly)
+2. **Step-by-Step Working:** (numbered steps with explanations)
+3. **Key Concept:** (what mathematical concept this uses)
+4. **Reference Sources:** (mention which retrieved examples helped)
+
+Your response:
+"""
+
+prompt = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
+chain = prompt | llm
 
 
-def retrieve_supporting_docs(question: str, route: dict, k: int = 4):
-    vectorstore = load_index()
-    topic = route.get("topic", "") or ""
-    method = route.get("method", "") or ""
-
-    query = f"{topic} {method} {question}".strip()
-    results = vectorstore.similarity_search_with_score(query, k=8)
-
-    hints = TOPIC_SOURCE_HINTS.get(topic, [])
-    filtered = []
-
-    for doc, score in results:
-        doc.metadata["score"] = float(score)
-        source = doc.metadata.get("source", "").lower()
-        content = doc.page_content.lower()
-
-        if any(h in source or h in content for h in hints):
-            filtered.append(doc)
-
-    if not filtered:
-        filtered = [doc for doc, _ in results]
-
-    return filtered[:k]
-
-
-def format_sources(docs):
-    return [doc.metadata.get("source", "unknown") for doc in docs]
-
-
-def format_supporting_notes(docs, max_chars=700):
-    snippets = []
-
-    for doc in docs[:2]:
-        source = doc.metadata.get("source", "unknown")
-        text = " ".join(doc.page_content.strip().split())
-
-        if len(text) > max_chars:
-            text = text[:max_chars].rstrip() + "..."
-
-        snippets.append(f"Source: {source}\n{text}")
-
-    return "\n\n".join(snippets)
-
-
-def build_answer_text(route: dict, solver_result: dict, docs):
+def format_context(docs):
+    """Format a list of LangChain Documents into a numbered string with source metadata."""
     parts = []
-
-    parts.append(f"Detected topic: {route.get('topic')}")
-    parts.append(f"Detected method: {route.get('method')}")
-
-    if route.get("reason"):
-        parts.append(f"Routing reason: {route.get('reason')}")
-
-    if solver_result.get("final") is not None:
-        parts.append(f"\nFinal answer:\n{solver_result['final']}")
-
-    if solver_result.get("working"):
-        parts.append(f"\nWorking:\n{solver_result['working']}")
-
-    if solver_result.get("why"):
-        parts.append(f"\nWhy this works:\n{solver_result['why']}")
-
-    notes_text = format_supporting_notes(docs)
-    if notes_text:
-        parts.append(f"\nSupporting notes:\n{notes_text}")
-
+    for i, doc in enumerate(docs, start=1):
+        source = doc.metadata.get("source", "unknown")
+        topic = doc.metadata.get("topic", "")
+        topic_label = f" [Topic: {topic}]" if topic and topic != "general" else ""
+        parts.append(f"[{i}] {source}{topic_label}\n{doc.page_content}")
     return "\n\n".join(parts)
 
 
-def answer_question(question: str):
-    route = route_question(question)
+def answer_question(question: str, k: int = 4):
+    """
+    Retrieve relevant documents, build context, and generate a tutoring response.
+    
+    Args:
+        question: Student's PSLE math question
+        k: Number of documents to retrieve (default: 4)
+    
+    Returns:
+        dict with answer, sources, and metadata
+    """
+    retriever = get_retriever(k=k)
+    docs = retriever.invoke(question)
 
-    if not route.get("topic"):
-        return {
-            "answer": UNSUPPORTED_MESSAGE,
-            "sources": [],
-            "supported": False,
-            "mode": "unsupported",
-            "route": route,
+    context = format_context(docs)
+    sources = [
+        {
+            "source": doc.metadata.get("source", "unknown"),
+            "topic": doc.metadata.get("topic", ""),
         }
+        for doc in docs
+    ]
 
-    solver_result = solve_question_by_route(question, route)
+    result = chain.invoke({"context": context, "question": question})
+    answer = result.content
 
-    if not solver_result.get("supported", False):
-        return {
-            "answer": solver_result.get("working", UNSUPPORTED_MESSAGE),
-            "sources": [],
-            "supported": False,
-            "mode": "unsupported",
-            "route": route,
-        }
-
-    docs = retrieve_supporting_docs(question, route, k=4)
-    sources = format_sources(docs)
-    answer_text = build_answer_text(route, solver_result, docs)
-
+    print(f"[generation] Answered question using {len(docs)} retrieved documents.")
+    
     return {
-        "answer": answer_text,
+        "answer": answer,
         "sources": sources,
-        "supported": True,
-        "mode": "solver",
-        "route": route,
+        "num_docs_retrieved": len(docs),
     }
