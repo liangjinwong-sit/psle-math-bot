@@ -32,7 +32,7 @@ TOPIC_KEYWORDS = {
         "keywords": [
             "percent", "%", "percentage", "discount", "tax", "interest",
             "increase by", "decrease by", "markup", "sale price",
-            "off", "more than", "less than",
+            "off",
         ],
         "patterns": [
             r"\d+\s*%",  # Percentage like 20%, 5 %
@@ -54,7 +54,7 @@ TOPIC_KEYWORDS = {
     
     "rate": {
         "keywords": [
-            "per", "each", "every", "rate", "speed", "unit price",
+            "per", "rate", "speed", "unit price",
             "miles per", "km per", "per hour", "per day", "per minute",
             "cost of one", "price of each", "how much is one",
             "per item", "per unit", "hourly", "daily", "weekly",
@@ -82,10 +82,9 @@ TOPIC_KEYWORDS = {
     
     "data_handling": {
         "keywords": [
-            "average", "mean", "median", "mode", "total",
-            "sum", "chart", "graph", "table", "data",
+            "average", "mean", "median", "mode",
+            "chart", "graph", "table", "data",
             "score", "grade", "test", "exam",
-            "altogether", "combined", "in total",
         ],
         "patterns": [
             r"average\s+of",

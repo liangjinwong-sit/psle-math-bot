@@ -26,29 +26,10 @@ def load_index():
     return vectorstore
 
 
-def get_retriever(k=4, topic_filter=None):
-    """
-    Load the FAISS index and return a retriever.
-    
-    Args:
-        k: Number of documents to retrieve
-        topic_filter: Optional topic to filter by (e.g., "percentage", "fractions_decimals")
-    
-    Returns:
-        Retriever with optional topic filtering
-    """
+def get_retriever(k=4):
+    """Load the FAISS index and return a retriever."""
     vectorstore = load_index()
-    
-    if topic_filter:
-        # Create retriever with metadata filter
-        return vectorstore.as_retriever(
-            search_kwargs={
-                "k": k * 3,  # Retrieve more, then filter
-                "filter": {"topic": topic_filter}
-            }
-        )
-    else:
-        return vectorstore.as_retriever(search_kwargs={"k": k})
+    return vectorstore.as_retriever(search_kwargs={"k": k})
 
 
 def retrieve_by_topic(question: str, topic: str, k: int = 4):
