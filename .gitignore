@@ -1,6 +1,9 @@
 .env
 index/
 data/*.pdf
+data/benchmark/evaluation_results.json
 __pycache__/
 *.pyc
 .DS_Store
+venv/
+.venv/

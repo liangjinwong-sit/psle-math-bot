@@ -9,7 +9,7 @@ def load_gsm8k_docs(split="train", limit=None):
     
     This dataset contains 8.5K high quality grade school math word problems
     with step-by-step solutions. Each question is automatically classified
-    into one of 6 PSLE math topics.
+    into one of 6 PSLE math topics using keyword-based classification.
     
     Args:
         split: "train" or "test"
@@ -17,11 +17,19 @@ def load_gsm8k_docs(split="train", limit=None):
     
     Returns:
         List of LangChain Documents with question, solution, and topic metadata
-    """
-    dataset = load_dataset("openai/gsm8k", "main", split=split)
-    docs = []
     
-    # Track topic distribution
+    Raises:
+        ConnectionError: If dataset cannot be downloaded
+    """
+    try:
+        dataset = load_dataset("openai/gsm8k", "main", split=split)
+    except Exception as e:
+        raise ConnectionError(
+            f"Failed to load GSM8K dataset ({split} split). "
+            f"Check your internet connection.\nError: {e}"
+        ) from e
+    
+    docs = []
     topic_counts = {}
     
     max_docs = len(dataset) if limit is None else min(limit, len(dataset))
@@ -39,7 +47,11 @@ def load_gsm8k_docs(split="train", limit=None):
         final_answer = full_answer.split("####")[1].strip() if "####" in full_answer else ""
         
         # Create document with question and solution
-        page_content = f"Question: {row['question']}\n\nSolution:\n{solution_steps}\n\nFinal Answer: {final_answer}"
+        page_content = (
+            f"Question: {row['question']}\n\n"
+            f"Solution:\n{solution_steps}\n\n"
+            f"Final Answer: {final_answer}"
+        )
         
         doc = Document(
             page_content=page_content,
@@ -47,7 +59,7 @@ def load_gsm8k_docs(split="train", limit=None):
                 "source": "gsm8k",
                 "split": split,
                 "id": i,
-                "topic": topic,  # PSLE topic classification
+                "topic": topic,
                 "question": row["question"],
                 "answer": final_answer,
             },
@@ -57,7 +69,7 @@ def load_gsm8k_docs(split="train", limit=None):
     print(f"[ingest] Loaded {len(docs)} documents from GSM8K {split} split.")
     print(f"[ingest] Topic distribution:")
     for topic, count in sorted(topic_counts.items(), key=lambda x: x[1], reverse=True):
-        print(f"  - {topic}: {count} ({count/len(docs)*100:.1f}%)")
+        print(f"  - {topic}: {count} ({count / len(docs) * 100:.1f}%)")
     
     return docs
 

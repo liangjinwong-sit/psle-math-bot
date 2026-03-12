@@ -14,55 +14,60 @@ import re
 from typing import Dict, List
 
 
-# Keywords for each PSLE topic
+# Keywords for each PSLE topic, with weights
+# Higher weight = stronger indicator for that topic
 TOPIC_KEYWORDS = {
     "fractions_decimals": {
         "keywords": [
             "fraction", "half", "third", "quarter", "fifth", "sixth", "eighth",
-            "decimal", "point", "1/2", "1/3", "1/4", "2/3", "3/4",
-            "0.", "divide into", "split equally", "share equally",
+            "decimal", "1/2", "1/3", "1/4", "2/3", "3/4",
+            "divide into", "split equally", "share equally",
+            "simplest form", "equivalent fraction", "mixed number",
+            "numerator", "denominator", "improper fraction",
         ],
         "patterns": [
-            r"\d+/\d+",  # Fraction pattern like 1/2, 3/4
-            r"\d+\.\d+",  # Decimal pattern like 3.5, 0.25
+            r"\b\d+\s*/\s*\d+\b",  # Fraction pattern like 1/2, 3/4
         ],
     },
     
     "percentage": {
         "keywords": [
-            "percent", "%", "percentage", "discount", "tax", "interest",
+            "percent", "percentage", "discount", "tax", "interest",
             "increase by", "decrease by", "markup", "sale price",
-            "off",
+            "gst", "profit margin",
         ],
         "patterns": [
-            r"\d+\s*%",  # Percentage like 20%, 5 %
-            r"\d+\s*percent",  # Word form
+            r"\d+\s*%",           # Percentage like 20%, 5%
+            r"\d+\s*percent",     # Word form
         ],
     },
     
     "ratio_proportion": {
         "keywords": [
-            "ratio", "proportion", "for every", "times as", "times more",
-            "times less", "share", "distribute", "split",
-            "compared to", "relationship between", "to every",
+            "ratio", "proportion", "for every", "times as many",
+            "times as much", "times more", "times less",
+            "share in the ratio", "distribute", "divided in the ratio",
+            "compared to", "to every",
         ],
         "patterns": [
-            r"\d+\s*:\s*\d+",  # Ratio pattern like 2:3, 1:4
+            r"\b\d+\s*:\s*\d+\b",  # Ratio pattern like 2:3, 1:4
             r"(\d+)\s+times\s+(as\s+)?(many|much|more|less|longer|shorter)",
         ],
     },
     
     "rate": {
         "keywords": [
-            "per", "rate", "speed", "unit price",
-            "miles per", "km per", "per hour", "per day", "per minute",
+            "per hour", "per day", "per minute", "per week", "per month",
+            "per litre", "per kilogram", "per item", "per unit",
+            "rate", "speed", "unit price", "unit cost",
+            "miles per", "km per", "kilometers per",
             "cost of one", "price of each", "how much is one",
-            "per item", "per unit", "hourly", "daily", "weekly",
+            "hourly", "daily", "weekly", "words per minute",
         ],
         "patterns": [
-            r"per\s+\w+",  # per hour, per day
-            r"\$\d+\s+each",  # $5 each
-            r"each\s+\w+\s+(costs|is)",  # each book costs
+            r"\bper\s+(hour|day|minute|second|week|month|year|litre|liter|kg|kilogram|item|unit|person)\b",
+            r"\$\d+\.?\d*\s+each\b",   # $5 each
+            r"\beach\s+\w+\s+(costs?|is)\b",  # each book costs
         ],
     },
     
@@ -70,25 +75,27 @@ TOPIC_KEYWORDS = {
         "keywords": [
             "area", "perimeter", "volume", "circumference", "diameter",
             "length", "width", "height", "depth", "radius",
-            "square", "rectangle", "triangle", "circle", "cube",
-            "meters", "feet", "inches", "cm", "m²", "cm²",
+            "rectangle", "triangle", "circle", "cube", "cuboid",
             "square meters", "square feet", "cubic",
+            "composite figure", "shaded region",
         ],
         "patterns": [
-            r"\d+\s*(meter|metre|foot|feet|inch|cm|mm|km)",
-            r"(square|cubic)\s+\w+",
+            r"\b\d+\s*(cm|mm|km|m)\b",  # Measurements (but not inside other words)
+            r"\b(square|cubic)\s+\w+",
+            r"\bm[²³]\b|\bcm[²³]\b",  # m², cm³ etc.
         ],
     },
     
     "data_handling": {
         "keywords": [
             "average", "mean", "median", "mode",
-            "chart", "graph", "table", "data",
-            "score", "grade", "test", "exam",
+            "bar chart", "pie chart", "line graph", "bar graph",
+            "table shows", "data", "tally",
+            "total number of", "how many more",
         ],
         "patterns": [
-            r"average\s+of",
-            r"mean\s+of",
+            r"\baverage\s+(of|score|mark|number)\b",
+            r"\bmean\s+(of|score|mark|number)\b",
         ],
     },
 }
@@ -96,13 +103,17 @@ TOPIC_KEYWORDS = {
 
 def classify_question(question: str) -> str:
     """
-    Classify a GSM8K question into one of the 6 PSLE topics.
+    Classify a math question into one of the 6 PSLE topics.
+    
+    Uses keyword matching and regex patterns to score each topic.
+    Patterns are weighted higher (3 points) than keywords (1 point)
+    to reduce false positives from common words.
     
     Args:
         question: The math question text
     
     Returns:
-        Topic name (e.g., "percentage", "fractions_decimals", etc.)
+        Topic key string (e.g., "percentage", "fractions_decimals")
         Returns "general" if no clear match
     """
     question_lower = question.lower()
@@ -118,15 +129,16 @@ def classify_question(question: str) -> str:
             if keyword in question_lower:
                 score += 1
         
-        # Check regex patterns
+        # Check regex patterns (stronger indicators)
         for pattern in data.get("patterns", []):
             if re.search(pattern, question_lower):
-                score += 2  # Patterns are stronger indicators
+                score += 3
         
         topic_scores[topic] = score
     
     # Get topic with highest score
-    if max(topic_scores.values()) > 0:
+    max_score = max(topic_scores.values())
+    if max_score > 0:
         best_topic = max(topic_scores, key=topic_scores.get)
         return best_topic
     
@@ -135,7 +147,7 @@ def classify_question(question: str) -> str:
 
 
 def get_topic_display_name(topic_key: str) -> str:
-    """Convert topic key to display name."""
+    """Convert topic key to user-friendly display name."""
     topic_names = {
         "fractions_decimals": "Fractions & Decimals",
         "percentage": "Percentage",
@@ -161,7 +173,7 @@ def get_all_topics() -> List[Dict[str, str]]:
 
 
 if __name__ == "__main__":
-    # Test the classifier
+    # Test the classifier with edge cases
     test_questions = [
         ("Janet's ducks lay 16 eggs per day. She eats three for breakfast.", "rate"),
         ("A shirt costs $60 and is sold at a 20% discount.", "percentage"),
@@ -169,13 +181,21 @@ if __name__ == "__main__":
         ("The ratio of boys to girls is 3:2.", "ratio_proportion"),
         ("Find the area of a rectangle with length 5m and width 3m.", "measurement"),
         ("The average score of 5 students is 80.", "data_handling"),
+        # Edge cases that previously caused collisions
+        ("A toy costs $5.50. If you buy 3, how much do you pay?", "general"),
+        ("What is 25 percent of 80?", "percentage"),
+        ("John scored 85% on his test.", "percentage"),
     ]
     
     print("Testing Topic Classifier:")
-    print("="*60)
+    print("=" * 60)
+    correct = 0
     for question, expected in test_questions:
         classified = classify_question(question)
         status = "✅" if classified == expected else "❌"
-        print(f"{status} '{question[:50]}...'")
+        if classified == expected:
+            correct += 1
+        print(f"{status} '{question[:55]}...'")
         print(f"   Expected: {expected}, Got: {classified}")
         print()
+    print(f"Accuracy: {correct}/{len(test_questions)} ({correct/len(test_questions)*100:.0f}%)")
