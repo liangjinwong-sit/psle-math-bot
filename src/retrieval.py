@@ -1,11 +1,143 @@
+import re
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.documents import Document
 
 INDEX_PATH = "index/psle_faiss"
+
+# Number of candidates fetched before reranking/diversity selection.
+RETRIEVAL_CANDIDATE_MULTIPLIER = 5
+MAX_RETRIEVAL_CANDIDATES = 60
+
+# When filtering by topic, we fetch this many times the requested k
+# as candidates before filtering, to increase the chance of finding
+# enough on-topic results.
+TOPIC_FILTER_CANDIDATE_MULTIPLIER = 8
+
+# Lightweight lexical rerank weight combined with embedding similarity.
+LEXICAL_RERANK_WEIGHT = 0.20
+
+# Keep at least one full chunk in final context when available.
+MIN_FULL_CHUNKS = 1
+
+# Remove instruction-like lines from retrieved context to reduce
+# prompt-injection risk from untrusted source text.
+INJECTION_LINE_PATTERNS = [
+    r"ignore\s+previous\s+instructions",
+    r"follow\s+these\s+instructions",
+    r"system\s+prompt",
+    r"developer\s+message",
+    r"assistant\s*:",
+    r"user\s*:",
+]
 
 # Module-level cache to avoid reloading index on every query
 _cached_vectorstore = None
 _cached_embeddings = None
+
+
+def _normalize_query(question: str) -> str:
+    """Normalize user query before retrieval."""
+    if question is None:
+        return ""
+    return re.sub(r"\s+", " ", str(question)).strip()
+
+
+def _tokenize(text: str) -> set:
+    """Simple tokenizer for lexical overlap reranking."""
+    return set(re.findall(r"[a-zA-Z0-9]+", (text or "").lower()))
+
+
+def _distance_to_similarity(distance: float) -> float:
+    """Convert FAISS L2 distance (lower is better) to similarity (higher is better)."""
+    return 1.0 / (1.0 + float(distance))
+
+
+def _strip_injection_lines(text: str) -> str:
+    """Remove suspicious instruction-like lines from untrusted retrieved text."""
+    safe_lines = []
+    for raw_line in (text or "").split("\n"):
+        line = raw_line.strip()
+        if any(re.search(pattern, line, flags=re.IGNORECASE) for pattern in INJECTION_LINE_PATTERNS):
+            continue
+        safe_lines.append(raw_line)
+    return "\n".join(safe_lines).strip()
+
+
+def _sanitize_doc_content(doc: Document) -> Document:
+    """Return a Document copy with sanitized page_content."""
+    cleaned_content = _strip_injection_lines(doc.page_content)
+    if cleaned_content == doc.page_content:
+        return doc
+
+    updated_metadata = dict(doc.metadata)
+    updated_metadata["sanitized"] = True
+    return Document(page_content=cleaned_content, metadata=updated_metadata)
+
+
+def _rerank_results(question: str, raw_results):
+    """Rerank retrieval candidates using semantic + lexical signal."""
+    query_tokens = _tokenize(question)
+    reranked = []
+    for doc, distance in raw_results:
+        semantic_score = _distance_to_similarity(distance)
+        doc_tokens = _tokenize(doc.page_content)
+        overlap = len(query_tokens.intersection(doc_tokens)) / max(1, len(query_tokens))
+        combined_score = min(1.0, semantic_score + LEXICAL_RERANK_WEIGHT * overlap)
+        reranked.append((_sanitize_doc_content(doc), combined_score))
+
+    reranked.sort(key=lambda item: item[1], reverse=True)
+    return reranked
+
+
+def _select_diverse_results(ranked_results, k: int):
+    """Select a diverse top-k set (prefer full chunk presence + parent diversity)."""
+    if not ranked_results:
+        return []
+
+    selected = []
+    selected_chunk_ids = set()
+    selected_parents = set()
+
+    # Pass 1: ensure at least MIN_FULL_CHUNKS full documents when available.
+    full_candidates = [
+        (doc, score) for doc, score in ranked_results
+        if doc.metadata.get("chunk_type", "full") == "full"
+    ]
+    for doc, score in full_candidates[:MIN_FULL_CHUNKS]:
+        chunk_id = doc.metadata.get("chunk_id")
+        parent_id = doc.metadata.get("parent_id", chunk_id)
+        selected.append((doc, score))
+        selected_chunk_ids.add(chunk_id)
+        selected_parents.add(parent_id)
+        if len(selected) >= k:
+            return selected
+
+    # Pass 2: add top candidates with parent diversity first.
+    for doc, score in ranked_results:
+        chunk_id = doc.metadata.get("chunk_id")
+        parent_id = doc.metadata.get("parent_id", chunk_id)
+        if chunk_id in selected_chunk_ids:
+            continue
+        if parent_id in selected_parents:
+            continue
+        selected.append((doc, score))
+        selected_chunk_ids.add(chunk_id)
+        selected_parents.add(parent_id)
+        if len(selected) >= k:
+            return selected
+
+    # Pass 3: fill remaining slots by score regardless of parent overlap.
+    for doc, score in ranked_results:
+        chunk_id = doc.metadata.get("chunk_id")
+        if chunk_id in selected_chunk_ids:
+            continue
+        selected.append((doc, score))
+        selected_chunk_ids.add(chunk_id)
+        if len(selected) >= k:
+            break
+
+    return selected
 
 
 def get_embeddings():
@@ -61,9 +193,15 @@ def retrieve_with_scores(question: str, k: int = 4):
         is in [0, 1] with higher being more similar
     """
     vectorstore = load_index()
-    results = vectorstore.similarity_search_with_score(question, k=k)
-    # Convert L2 distance to similarity score: 1/(1+distance)
-    return [(doc, 1.0 / (1.0 + score)) for doc, score in results]
+    clean_question = _normalize_query(question)
+
+    # Stage 1: fetch a larger candidate pool.
+    candidate_size = min(MAX_RETRIEVAL_CANDIDATES, max(k * RETRIEVAL_CANDIDATE_MULTIPLIER, k))
+    raw_results = vectorstore.similarity_search_with_score(clean_question, k=candidate_size)
+
+    # Stage 2: rerank and select a diverse final top-k.
+    ranked = _rerank_results(clean_question, raw_results)
+    return _select_diverse_results(ranked, k)
 
 
 def retrieve_by_topic(question: str, topic: str, k: int = 4):
@@ -82,26 +220,26 @@ def retrieve_by_topic(question: str, topic: str, k: int = 4):
         List of (document, similarity_score) tuples filtered by topic
     """
     vectorstore = load_index()
-    
-    # Fetch larger candidate set for filtering
-    candidate_size = k * 8
-    all_results = vectorstore.similarity_search_with_score(question, k=candidate_size)
-    
-    # Filter by topic and convert scores
-    topic_results = [
-        (doc, 1.0 / (1.0 + score))
+    clean_question = _normalize_query(question)
+
+    # Fetch larger candidate set for topic filtering + reranking.
+    candidate_size = min(MAX_RETRIEVAL_CANDIDATES, max(k * TOPIC_FILTER_CANDIDATE_MULTIPLIER, k))
+    all_results = vectorstore.similarity_search_with_score(clean_question, k=candidate_size)
+
+    # Prefer topic-specific candidates first.
+    topic_raw_results = [
+        (doc, score)
         for doc, score in all_results
         if doc.metadata.get("topic") == topic
     ]
-    
-    # If we found enough topic-specific results, use them
-    if len(topic_results) >= k:
-        return topic_results[:k]
-    
-    # If not enough topic matches, return what we have plus top general results
-    if topic_results:
-        return topic_results
-    
-    # Fallback: no topic matches at all, return general results
+
+    if topic_raw_results:
+        ranked_topic = _rerank_results(clean_question, topic_raw_results)
+        selected_topic = _select_diverse_results(ranked_topic, k)
+        if selected_topic:
+            return selected_topic
+
+    # Fallback: no topic matches found, use best general results.
     print(f"[retrieval] Warning: No documents found for topic '{topic}', falling back to general search.")
-    return [(doc, 1.0 / (1.0 + score)) for doc, score in all_results[:k]]
+    ranked_general = _rerank_results(clean_question, all_results)
+    return _select_diverse_results(ranked_general, k)

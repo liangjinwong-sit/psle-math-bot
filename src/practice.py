@@ -11,6 +11,12 @@ import random
 from datasets import load_dataset
 from src.topic_classifier import classify_question, get_topic_display_name
 
+# ── Difficulty Thresholds (step counts) ────────────────────────────
+# GSM8K solutions are one line per reasoning step.  We classify by
+# counting non-empty, non-answer lines (steps).
+DIFFICULTY_EASY_MAX_STEPS = 2    # <= 2 steps → easy
+DIFFICULTY_MEDIUM_MAX_STEPS = 4  # 3-4 steps → medium; >4 → hard
+
 _test_dataset = None
 _classified_test = None  # Cache of (index, topic) pairs for filtered retrieval
 
@@ -41,38 +47,46 @@ def _get_classified_test():
     return _classified_test
 
 
-def get_random_question(topic: str = None):
+def get_random_question(topic: str = None, difficulty: str = None):
     """
-    Return a random practice question, optionally filtered by topic.
-    
+    Return a random practice question, optionally filtered by topic and difficulty.
+
     Args:
         topic: Optional PSLE topic key (e.g., "percentage", "rate").
                If None, returns a question from any topic.
-    
+        difficulty: Optional difficulty level ("easy", "medium", "hard").
+                    If None, returns any difficulty.
+
     Returns:
-        dict with question, answer, and topic
+        dict with question, answer, topic, and difficulty
     """
     dataset = _load_test_split()
-    
+
     if topic:
         classified = _get_classified_test()
         indices = classified.get(topic, [])
         if not indices:
-            # Fallback to random if no questions match the topic
-            idx = random.randint(0, len(dataset) - 1)
-        else:
-            idx = random.choice(indices)
+            indices = list(range(len(dataset)))
     else:
-        idx = random.randint(0, len(dataset) - 1)
-    
+        indices = list(range(len(dataset)))
+
+    # Filter by difficulty if specified
+    if difficulty:
+        filtered = [i for i in indices
+                    if estimate_difficulty(dataset[i]["answer"]) == difficulty]
+        if filtered:
+            indices = filtered
+
+    idx = random.choice(indices)
     row = dataset[idx]
     question_topic = classify_question(row["question"])
-    
+
     return {
         "question": row["question"],
         "answer": row["answer"],
         "topic": question_topic,
         "topic_display": get_topic_display_name(question_topic),
+        "difficulty": estimate_difficulty(row["answer"]),
     }
 
 
@@ -83,6 +97,26 @@ def get_final_answer(full_answer: str):
     if "####" in full_answer:
         return full_answer.split("####")[-1].strip()
     return full_answer.strip()
+
+
+def estimate_difficulty(answer_text: str) -> str:
+    """
+    Estimate question difficulty from GSM8K solution step count.
+
+    Easy: 1-2 reasoning steps
+    Medium: 3-4 reasoning steps
+    Hard: 5+ reasoning steps
+    """
+    # Heuristic: count reasoning steps (non-empty, non-answer lines).
+    # GSM8K solutions use one line per step, so step count correlates with difficulty.
+    steps = [line.strip() for line in answer_text.split("\n")
+             if line.strip() and "####" not in line]
+    if len(steps) <= DIFFICULTY_EASY_MAX_STEPS:
+        return "easy"      # 1-2 steps: straightforward
+    elif len(steps) <= DIFFICULTY_MEDIUM_MAX_STEPS:
+        return "medium"    # 3-4 steps: moderate complexity
+    else:
+        return "hard"      # 5+ steps: multi-step reasoning
 
 
 def generate_practice_question(topic: str, difficulty: str = "medium"):
@@ -168,7 +202,8 @@ ANSWER: [Final numeric answer only]"""
                 if len(answer_parts) >= 2:
                     answer = answer_parts[1].strip()
         
-        # Handle multi-line solution (lines after SOLUTION: but before ANSWER:)
+        # Handle multi-line solution: extract everything between SOLUTION:
+        # and ANSWER: markers when line-by-line parsing missed content.
         if not solution and "SOLUTION:" in response and "ANSWER:" in response:
             sol_start = response.index("SOLUTION:") + len("SOLUTION:")
             sol_end = response.index("ANSWER:")

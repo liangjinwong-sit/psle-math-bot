@@ -24,11 +24,9 @@ TOPIC_KEYWORDS = {
             "divide into", "split equally", "share equally",
             "simplest form", "equivalent fraction", "mixed number",
             "numerator", "denominator", "improper fraction",
-            "which is smaller", "which is greater", "which is larger",
         ],
         "patterns": [
-            r"\b\d+\s*/\s*\d+\b",           # Fraction pattern like 1/2, 3/4
-            r"(?<!\$)\b\d+\.\d+\b",          # Decimal not preceded by $ (avoids prices)
+            r"\b\d+\s*/\s*\d+\b",  # Fraction pattern like 1/2, 3/4
         ],
     },
     
@@ -61,19 +59,15 @@ TOPIC_KEYWORDS = {
         "keywords": [
             "per hour", "per day", "per minute", "per week", "per month",
             "per litre", "per kilogram", "per item", "per unit",
-            "rate", "speed", "average speed", "unit price", "unit cost",
+            "rate", "speed", "unit price", "unit cost",
             "miles per", "km per", "kilometers per",
             "cost of one", "price of each", "how much is one",
-            "how much does 1", "how much does one",
             "hourly", "daily", "weekly", "words per minute",
-            "workers", "machines", "taps",
         ],
         "patterns": [
             r"\bper\s+(hour|day|minute|second|week|month|year|litre|liter|kg|kilogram|item|unit|person)\b",
-            r"\$\d+\.?\d*\s+each\b",                          # $5 each
-            r"\beach\s+\w+\s+(costs?|is)\b",                   # each book costs
-            r"\bin\s+\d+\s+(hours?|days?|minutes?|seconds?|weeks?|months?|years?)\b",  # in 3 hours
-            r"\d+\s+\w+\s+costs?\s+\$",                       # 5 notebooks cost $
+            r"\$\d+\.?\d*\s+each\b",   # $5 each
+            r"\beach\s+\w+\s+(costs?|is)\b",  # each book costs
         ],
     },
     
