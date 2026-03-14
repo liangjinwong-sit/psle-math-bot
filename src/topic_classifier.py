@@ -24,9 +24,11 @@ TOPIC_KEYWORDS = {
             "divide into", "split equally", "share equally",
             "simplest form", "equivalent fraction", "mixed number",
             "numerator", "denominator", "improper fraction",
+            "which is smaller", "which is greater", "which is larger",
         ],
         "patterns": [
-            r"\b\d+\s*/\s*\d+\b",  # Fraction pattern like 1/2, 3/4
+            r"\b\d+\s*/\s*\d+\b",           # Fraction pattern like 1/2, 3/4
+            r"(?<!\$)\b\d+\.\d+\b",          # Decimal not preceded by $ (avoids prices)
         ],
     },
     
@@ -34,7 +36,7 @@ TOPIC_KEYWORDS = {
         "keywords": [
             "percent", "percentage", "discount", "tax", "interest",
             "increase by", "decrease by", "markup", "sale price",
-            "gst", "profit margin",
+            "gst", "profit margin", "as a percentage",
         ],
         "patterns": [
             r"\d+\s*%",           # Percentage like 20%, 5%
@@ -47,7 +49,7 @@ TOPIC_KEYWORDS = {
             "ratio", "proportion", "for every", "times as many",
             "times as much", "times more", "times less",
             "share in the ratio", "distribute", "divided in the ratio",
-            "compared to", "to every",
+            "compared to", "to every", "simplify the ratio",
         ],
         "patterns": [
             r"\b\d+\s*:\s*\d+\b",  # Ratio pattern like 2:3, 1:4
@@ -59,15 +61,22 @@ TOPIC_KEYWORDS = {
         "keywords": [
             "per hour", "per day", "per minute", "per week", "per month",
             "per litre", "per kilogram", "per item", "per unit",
-            "rate", "speed", "unit price", "unit cost",
+            "rate", "speed", "average speed", "unit price", "unit cost",
             "miles per", "km per", "kilometers per",
             "cost of one", "price of each", "how much is one",
+            "how much does 1", "how much does one",
             "hourly", "daily", "weekly", "words per minute",
+            "workers", "machines", "taps",
         ],
         "patterns": [
             r"\bper\s+(hour|day|minute|second|week|month|year|litre|liter|kg|kilogram|item|unit|person)\b",
-            r"\$\d+\.?\d*\s+each\b",   # $5 each
-            r"\beach\s+\w+\s+(costs?|is)\b",  # each book costs
+            r"\$\d+\.?\d*\s+each\b",                          # $5 each
+            r"\beach\s+\w+\s+(costs?|is)\b",                   # each book costs
+            r"\bin\s+\d+\s+(hours?|days?|minutes?|seconds?|weeks?|months?|years?)\b",  # in 3 hours
+            r"\d+\s+\w+\s+costs?\s+\$",                       # 5 notebooks cost $
+            r"\d+\s+kg\b.*costs?\b",                           # 3 kg ... costs
+            r"\bproduces?\s+\d+",                              # produces 480
+            r"\btypes?\s+\d+\s+words",                         # types 60 words
         ],
     },
     
@@ -78,11 +87,13 @@ TOPIC_KEYWORDS = {
             "rectangle", "triangle", "circle", "cube", "cuboid",
             "square meters", "square feet", "cubic",
             "composite figure", "shaded region",
+            "convert", "metres", "meters", "centimetres",
         ],
         "patterns": [
             r"\b\d+\s*(cm|mm|km|m)\b",  # Measurements (but not inside other words)
             r"\b(square|cubic)\s+\w+",
             r"\bm[²³]\b|\bcm[²³]\b",  # m², cm³ etc.
+            r"cm\s+squared",           # "cm squared"
         ],
     },
     
@@ -92,10 +103,13 @@ TOPIC_KEYWORDS = {
             "bar chart", "pie chart", "line graph", "bar graph",
             "table shows", "data", "tally",
             "total number of", "how many more",
+            "average score", "average height", "average daily",
+            "average number",
         ],
         "patterns": [
-            r"\baverage\s+(of|score|mark|number)\b",
-            r"\bmean\s+(of|score|mark|number)\b",
+            r"\baverage\b",
+            r"\bmean\b",
+            r"\bscored?\s+\d+.*\d+.*\d+",  # scored X, Y, Z (list of scores)
         ],
     },
 }
@@ -181,10 +195,20 @@ if __name__ == "__main__":
         ("The ratio of boys to girls is 3:2.", "ratio_proportion"),
         ("Find the area of a rectangle with length 5m and width 3m.", "measurement"),
         ("The average score of 5 students is 80.", "data_handling"),
-        # Edge cases that previously caused collisions
         ("A toy costs $5.50. If you buy 3, how much do you pay?", "general"),
         ("What is 25 percent of 80?", "percentage"),
         ("John scored 85% on his test.", "percentage"),
+        # New benchmark edge cases
+        ("Calculate 4.25 - 1.8.", "fractions_decimals"),
+        ("Which is smaller, 0.48 or 0.5?", "fractions_decimals"),
+        ("A car travels 180 km in 3 hours. What is its average speed?", "rate"),
+        ("5 notebooks cost $15. How much does 1 notebook cost?", "rate"),
+        ("If 8 workers can build a wall in 6 days, how many days would 12 workers take?", "rate"),
+        ("3 kg of rice costs $7.50. How much does 1 kg cost?", "rate"),
+        ("A machine produces 480 items in 8 hours.", "rate"),
+        ("The total rainfall over 4 days was 60 mm. What was the average daily rainfall?", "data_handling"),
+        ("The average height of 6 students is 140 cm.", "data_handling"),
+        ("A shop sold 12, 18, 15, 20, and 10 ice creams over 5 days. What was the average number sold per day?", "data_handling"),
     ]
     
     print("Testing Topic Classifier:")
@@ -192,10 +216,10 @@ if __name__ == "__main__":
     correct = 0
     for question, expected in test_questions:
         classified = classify_question(question)
-        status = "✅" if classified == expected else "❌"
+        status = "PASS" if classified == expected else "FAIL"
         if classified == expected:
             correct += 1
-        print(f"{status} '{question[:55]}...'")
+        print(f"[{status}] '{question[:55]}...'")
         print(f"   Expected: {expected}, Got: {classified}")
         print()
     print(f"Accuracy: {correct}/{len(test_questions)} ({correct/len(test_questions)*100:.0f}%)")

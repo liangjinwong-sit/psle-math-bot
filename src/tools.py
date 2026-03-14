@@ -102,19 +102,52 @@ def extract_first_numeric(text: str) -> Optional[float]:
 
 
 def is_calculation_heavy(question: str) -> bool:
-    """Heuristic router for when to enable tool-augmented answering."""
+    """
+    Heuristic router: decide when to enable tool-augmented answering.
+
+    We only activate the agent when the question is genuinely likely to
+    involve multi-step arithmetic that an LLM might get wrong. This avoids
+    adding 2-3 extra LLM calls for simple conceptual questions.
+
+    Triggers on:
+    - Explicit arithmetic operators in the question (e.g., "1847 * 293")
+    - Questions with large numbers (3+ digits) combined with math action words
+    - Multi-step phrasing ("then", "and then", "after that")
+
+    Does NOT trigger on:
+    - Simple word problems with small numbers ("Find 25% of 80")
+    - Conceptual questions ("Which is greater, 3/5 or 0.7?")
+    - Questions that RAG alone can handle well
+    """
     q = (question or "").lower()
-    if re.search(r"\d+\s*[-+*/x×÷]\s*\d+", q):
+
+    # Strong signal: explicit arithmetic expression in the question
+    # We exclude / from operators because fractions (3/5, 1/4) are common
+    # in PSLE math and don't need a calculator tool.
+    if re.search(r"\d+\s*[-+*x×÷]\s*\d+", q):
         return True
 
-    keywords = [
-        "calculate", "how much", "how many", "total", "difference",
-        "sum", "product", "quotient", "percentage", "ratio", "mean",
-        "average", "per", "cost", "discount", "increase", "decrease",
-    ]
-    hit_count = sum(1 for kw in keywords if kw in q)
-    has_number = bool(re.search(r"\d", q))
-    return has_number and hit_count >= 1
+    # Strong signal: very large numbers that LLMs typically miscalculate
+    large_numbers = re.findall(r"\d+", q)
+    has_large_number = any(int(n) >= 1000 for n in large_numbers if len(n) <= 10)
+
+    # Multi-step phrasing suggests chained calculations
+    multi_step_phrases = ["then", "and then", "after that", "next", "followed by"]
+    has_multi_step = any(phrase in q for phrase in multi_step_phrases)
+
+    # Calculation action words (more specific than before)
+    calc_keywords = ["calculate", "compute", "evaluate", "what is the product",
+                     "what is the sum", "multiply", "divide"]
+    has_calc_keyword = any(kw in q for kw in calc_keywords)
+
+    # Trigger if large numbers + any math context, or explicit calc request
+    if has_large_number and (has_multi_step or has_calc_keyword):
+        return True
+
+    if has_calc_keyword:
+        return True
+
+    return False
 
 
 TOOLS = {

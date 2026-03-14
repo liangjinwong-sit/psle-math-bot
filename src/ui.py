@@ -373,11 +373,15 @@ def _render_mcq_answer():
     """Render MCQ options for the current practice question."""
     if st.session_state.get("practice_mcq_options") is None:
         with st.spinner("Generating answer choices..."):
-            correct_answer = get_final_answer(st.session_state["practice_answer"])
-            options = generate_mcq_options(
-                st.session_state["practice_question"], correct_answer
-            )
-            st.session_state["practice_mcq_options"] = options
+            try:
+                correct_answer = get_final_answer(st.session_state["practice_answer"])
+                options = generate_mcq_options(
+                    st.session_state["practice_question"], correct_answer
+                )
+                st.session_state["practice_mcq_options"] = options
+            except Exception:
+                st.error("Could not generate answer choices right now. Please try again.")
+                return
 
     options = st.session_state["practice_mcq_options"]
     if not options:
@@ -408,7 +412,6 @@ def _render_mcq_answer():
             st.session_state.get("practice_topic", "General"),
             is_correct,
         )
-
 
 def _render_short_answer():
     """Render the short answer text input and check button."""
