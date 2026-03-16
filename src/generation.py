@@ -6,7 +6,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from src.retrieval import retrieve_by_topic, retrieve_with_scores
 from src.tools import TOOLS, is_calculation_heavy
-from src.topic_classifier import get_topic_display_name
+from src.topic_classifier import get_topic_display_name, is_math_question
 
 load_dotenv()
 
@@ -55,8 +55,43 @@ CONTEXT_INJECTION_PATTERNS = [
     r"user\s*:",
 ]
 
+# Patterns checked against user input to block prompt-injection attempts
+# before the query reaches the LLM.  Matched lines are stripped out; if
+# the entire input is suspicious we return a friendly refusal.
+INPUT_INJECTION_PATTERNS = [
+    r"ignore\s+(all\s+)?previous\s+instructions",
+    r"ignore\s+(all\s+)?above\s+instructions",
+    r"disregard\s+(all\s+)?previous",
+    r"override\s+(all\s+)?instructions",
+    r"forget\s+(all\s+)?previous",
+    r"you\s+are\s+now\s+a",
+    r"act\s+as\s+(?!a\s+calculator)",  # "act as" but allow "act as a calculator"
+    r"pretend\s+you\s+are",
+    r"system\s+prompt",
+    r"reveal\s+your\s+(instructions|prompt|rules)",
+    r"what\s+are\s+your\s+(instructions|rules)",
+    r"repeat\s+your\s+(instructions|prompt|system)",
+]
+
 # Lazy-initialized LLM instance (avoids crash at import time if API key is missing)
 _llm_instance = None
+
+
+def _sanitize_user_input(question: str) -> str:
+    """Remove prompt-injection lines from user input.
+
+    Returns a cleaned version of the question with suspicious lines
+    stripped out.  If the entire input is suspicious (nothing left
+    after cleaning), returns an empty string so the caller can show
+    a friendly refusal.
+    """
+    safe_lines = []
+    for raw_line in (question or "").split("\n"):
+        line = raw_line.strip()
+        if any(re.search(p, line, re.IGNORECASE) for p in INPUT_INJECTION_PATTERNS):
+            continue
+        safe_lines.append(raw_line)
+    return "\n".join(safe_lines).strip()
 
 
 def _strip_injection_lines(text: str) -> str:
@@ -606,6 +641,39 @@ def answer_question(question: str, topic: str = None, k: int = DEFAULT_RETRIEVAL
         dict with keys: answer, citations, topic, topic_display,
         num_docs_retrieved, confidence, low_confidence, used_tools
     """
+    # Step 0a: Sanitize user input to strip prompt-injection attempts.
+    question = _sanitize_user_input(question)
+    if not question:
+        return {
+            "answer": "Hmm, I couldn't find a math question in your input. "
+                      "Could you try rephrasing it as a math problem?",
+            "citations": [],
+            "topic": topic,
+            "topic_display": topic if topic else "All Topics",
+            "num_docs_retrieved": 0,
+            "confidence": 0,
+            "low_confidence": True,
+            "used_tools": [],
+        }
+
+    # Step 0b: Reject clearly off-topic (non-math) questions early so we
+    # don't waste an LLM call on geography, history, etc.
+    if not is_math_question(question):
+        return {
+            "answer": "I'm a **PSLE Math tutor** -- I can only help with math questions! "
+                      "Try asking me something like:\n\n"
+                      "- *A shirt costs $80 and is on a 25% discount. What is the sale price?*\n"
+                      "- *The ratio of boys to girls is 3:5. If there are 24 students, how many boys?*\n"
+                      "- *Find the area of a rectangle with length 8 cm and width 5 cm.*",
+            "citations": [],
+            "topic": topic,
+            "topic_display": topic if topic else "All Topics",
+            "num_docs_retrieved": 0,
+            "confidence": 0,
+            "low_confidence": False,
+            "used_tools": [],
+        }
+
     # Step 1: Retrieve the k most similar solved problems from FAISS.
     # If a specific topic is given we do filtered retrieval; otherwise
     # we search across all topics.
