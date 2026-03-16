@@ -115,6 +115,53 @@ TOPIC_KEYWORDS = {
 }
 
 
+def is_math_question(question: str) -> bool:
+    """
+    Lightweight check to determine if a question is math-related.
+
+    Used as a guardrail so the bot does not attempt to answer off-topic
+    queries (e.g. geography, history) that would waste an LLM call and
+    confuse the student.  Returns True for anything that looks like it
+    could be a math word problem; False for clearly non-math input.
+    """
+    q = (question or "").lower()
+
+    # 1. Contains a number → very likely math-related
+    if re.search(r"\d", q):
+        return True
+
+    # 2. Matches any topic keyword or pattern from the classifier.
+    #    Use word-boundary matching to avoid false positives from
+    #    substrings (e.g. "mean" inside "meaning").
+    for data in TOPIC_KEYWORDS.values():
+        for keyword in data["keywords"]:
+            if re.search(r"\b" + re.escape(keyword) + r"\b", q):
+                return True
+        for pattern in data.get("patterns", []):
+            if re.search(pattern, q):
+                return True
+
+    # 3. General math vocabulary not captured by a specific topic
+    math_words = [
+        "add", "subtract", "multiply", "divide", "sum", "difference",
+        "product", "quotient", "remainder", "total", "altogether",
+        "how many", "how much", "how far", "how long", "how heavy",
+        "how old", "how fast", "calculate", "compute", "evaluate",
+        "solve", "work out", "equation",
+        "cost", "price", "money", "dollar", "cent", "bought", "sold",
+        "gave", "more than", "less than", "equal", "twice",
+        "double", "triple", "plus", "minus", "greater", "fewer",
+        "spent", "earned", "saved", "shared", "divided", "combined",
+        "weighs", "weight", "litres", "liters", "kilograms",
+        "math", "maths", "arithmetic", "geometry",
+    ]
+    for word in math_words:
+        if word in q:
+            return True
+
+    return False
+
+
 def classify_question(question: str) -> str:
     """
     Classify a math question into one of the 6 PSLE topics.
