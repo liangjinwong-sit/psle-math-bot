@@ -1,6 +1,7 @@
 {
   "num_questions": 56,
   "topic_filter": null,
+  "provider": "ollama",
   "classification": {
     "accuracy": 1.0,
     "correct": 56,
