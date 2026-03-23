@@ -1,3 +1,10 @@
+.env
+index/
+data/*.pdf
+data/benchmark/evaluation_results.json
+data/benchmark/evaluation_results.csv
+data/benchmark/eval_*.json
+data/benchmark/eval_*.csv
 __pycache__/
 *.pyc
 .DS_Store

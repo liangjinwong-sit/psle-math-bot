@@ -4,6 +4,9 @@ langchain-community==0.4.1
 langchain-core==1.2.18
 langchain-google-genai==4.2.1
 langchain-huggingface==1.2.1
+langchain-openai>=0.3.0
+langchain-groq>=0.3.0
+langchain-ollama>=0.3.0
 faiss-cpu==1.13.2
 sentence-transformers==5.2.3
 streamlit==1.55.0
