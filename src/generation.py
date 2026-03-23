@@ -689,7 +689,7 @@ def answer_question(question: str, topic: str = None, k: int = DEFAULT_RETRIEVAL
             "answer": f"Error loading the knowledge base: {str(e)}\n\nPlease make sure the FAISS index has been built by running `python build_index.py`.",
             "citations": [],
             "topic": topic,
-            "topic_display": topic_display if topic else "All Topics",
+            "topic_display": get_topic_display_name(topic) if topic else "All Topics",
             "num_docs_retrieved": 0,
             "confidence": 0,
             "low_confidence": True,

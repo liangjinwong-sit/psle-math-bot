@@ -25,10 +25,10 @@ for i, doc in enumerate(results, 1):
 print(f"\n\n--- Testing Topic Filtering ---")
 topic_filtered = retrieve_by_topic(test_question, topic, k=3)
 print(f"\n[OK] Topic-filtered retrieval returned {len(topic_filtered)} documents")
-for i, doc in enumerate(topic_filtered, 1):
+for i, (doc, score) in enumerate(topic_filtered, 1):
     doc_topic = doc.metadata.get("topic", "N/A")
     question_preview = doc.metadata.get("question", "N/A")[:60]
     print(f"\n{i}. Topic: {doc_topic}")
     print(f"   Question: {question_preview}...")
 
-print("\n\n[OK] Topic metadata working correctly!" if all(doc.metadata.get("topic") == topic for doc in topic_filtered) else "\n\n[FAIL] Warning: Some documents don't have the expected topic")
+print("\n\n[OK] Topic metadata working correctly!" if all(doc.metadata.get("topic") == topic for doc, score in topic_filtered) else "\n\n[FAIL] Warning: Some documents don't have the expected topic")
