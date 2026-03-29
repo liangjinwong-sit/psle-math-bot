@@ -1,7 +1,7 @@
 {
   "num_questions": 56,
   "topic_filter": null,
-  "provider": "ollama",
+  "provider": "gemini",
   "classification": {
     "accuracy": 1.0,
     "correct": 56,
@@ -41,344 +41,344 @@
   },
   "retrieval": {
     "topic_precision": 0.6785714285714286,
-    "avg_similarity": 0.6661585729656837,
+    "avg_similarity": 0.6661585661581331,
     "total_docs": 224,
     "topic_match_docs": 152,
     "details": [
       {
         "id": "Q01",
         "topic_precision": 1.0,
-        "avg_score": 0.7150101925525914,
+        "avg_score": 0.7150101925889772,
         "num_retrieved": 4
       },
       {
         "id": "Q02",
         "topic_precision": 1.0,
-        "avg_score": 0.8184915980646127,
+        "avg_score": 0.8184915489143532,
         "num_retrieved": 4
       },
       {
         "id": "Q03",
         "topic_precision": 1.0,
-        "avg_score": 0.5941335203813118,
+        "avg_score": 0.5941335707227037,
         "num_retrieved": 4
       },
       {
         "id": "Q04",
         "topic_precision": 0.5,
-        "avg_score": 0.6170756217936417,
+        "avg_score": 0.6170756543148062,
         "num_retrieved": 4
       },
       {
         "id": "Q05",
         "topic_precision": 0.75,
-        "avg_score": 0.6191390560445227,
+        "avg_score": 0.6191390763983083,
         "num_retrieved": 4
       },
       {
         "id": "Q06",
         "topic_precision": 1.0,
-        "avg_score": 0.6268112301542229,
+        "avg_score": 0.6268112473880749,
         "num_retrieved": 4
       },
       {
         "id": "Q07",
         "topic_precision": 1.0,
-        "avg_score": 0.726299695386328,
+        "avg_score": 0.7262996444816814,
         "num_retrieved": 4
       },
       {
         "id": "Q08",
         "topic_precision": 0.25,
-        "avg_score": 0.6298413290245892,
+        "avg_score": 0.6298413090780393,
         "num_retrieved": 4
       },
       {
         "id": "Q09",
         "topic_precision": 0.75,
-        "avg_score": 0.6021564331153039,
+        "avg_score": 0.6021564149979132,
         "num_retrieved": 4
       },
       {
         "id": "Q10",
         "topic_precision": 0.25,
-        "avg_score": 0.6862491759804181,
+        "avg_score": 0.6862491506141004,
         "num_retrieved": 4
       },
       {
         "id": "Q11",
         "topic_precision": 0.5,
-        "avg_score": 0.6246515511748603,
+        "avg_score": 0.6246515381212164,
         "num_retrieved": 4
       },
       {
         "id": "Q12",
         "topic_precision": 0.75,
-        "avg_score": 0.5507441062918592,
+        "avg_score": 0.5507440951549097,
         "num_retrieved": 4
       },
       {
         "id": "Q13",
         "topic_precision": 0.75,
-        "avg_score": 0.5970713089521567,
+        "avg_score": 0.5970712633132539,
         "num_retrieved": 4
       },
       {
         "id": "Q14",
         "topic_precision": 0.5,
-        "avg_score": 0.5761377785674346,
+        "avg_score": 0.5761377828802486,
         "num_retrieved": 4
       },
       {
         "id": "Q15",
         "topic_precision": 0.25,
-        "avg_score": 0.5735609440293371,
+        "avg_score": 0.5735609138144191,
         "num_retrieved": 4
       },
       {
         "id": "Q16",
         "topic_precision": 0.0,
-        "avg_score": 0.538592047833174,
+        "avg_score": 0.5385920483384479,
         "num_retrieved": 4
       },
       {
         "id": "Q17",
         "topic_precision": 0.75,
-        "avg_score": 0.6357677176393928,
+        "avg_score": 0.6357677129033847,
         "num_retrieved": 4
       },
       {
         "id": "Q18",
         "topic_precision": 0.25,
-        "avg_score": 0.6012288362456317,
+        "avg_score": 0.6012288236403702,
         "num_retrieved": 4
       },
       {
         "id": "Q19",
         "topic_precision": 0.75,
-        "avg_score": 0.6309741051959681,
+        "avg_score": 0.630974092535397,
         "num_retrieved": 4
       },
       {
         "id": "Q20",
         "topic_precision": 0.5,
-        "avg_score": 0.6234258086342941,
+        "avg_score": 0.6234257944939798,
         "num_retrieved": 4
       },
       {
         "id": "Q21",
         "topic_precision": 0.0,
-        "avg_score": 0.7318808860792682,
+        "avg_score": 0.7318808970959825,
         "num_retrieved": 4
       },
       {
         "id": "Q22",
         "topic_precision": 0.5,
-        "avg_score": 0.6078985452306629,
+        "avg_score": 0.6078985364488864,
         "num_retrieved": 4
       },
       {
         "id": "Q23",
         "topic_precision": 0.5,
-        "avg_score": 0.7850931597906907,
+        "avg_score": 0.7850931524026938,
         "num_retrieved": 4
       },
       {
         "id": "Q24",
         "topic_precision": 0.75,
-        "avg_score": 0.7235510033390058,
+        "avg_score": 0.7235509378289281,
         "num_retrieved": 4
       },
       {
         "id": "Q25",
         "topic_precision": 0.75,
-        "avg_score": 0.8806380950311695,
+        "avg_score": 0.8806380691406863,
         "num_retrieved": 4
       },
       {
         "id": "Q26",
         "topic_precision": 0.75,
-        "avg_score": 0.5850913729020917,
+        "avg_score": 0.5850913856632113,
         "num_retrieved": 4
       },
       {
         "id": "Q27",
         "topic_precision": 0.5,
-        "avg_score": 0.6373015586934079,
+        "avg_score": 0.6373015338784117,
         "num_retrieved": 4
       },
       {
         "id": "Q28",
         "topic_precision": 0.25,
-        "avg_score": 0.7557927392781417,
+        "avg_score": 0.7557927394796354,
         "num_retrieved": 4
       },
       {
         "id": "Q29",
         "topic_precision": 0.25,
-        "avg_score": 0.6056629446602059,
+        "avg_score": 0.6056629557294799,
         "num_retrieved": 4
       },
       {
         "id": "Q30",
         "topic_precision": 0.75,
-        "avg_score": 0.7402526034251526,
+        "avg_score": 0.7402526084222065,
         "num_retrieved": 4
       },
       {
         "id": "Q31",
         "topic_precision": 0.25,
-        "avg_score": 0.7076365486574514,
+        "avg_score": 0.7076364047435505,
         "num_retrieved": 4
       },
       {
         "id": "Q32",
         "topic_precision": 0.25,
-        "avg_score": 0.6664089123454174,
+        "avg_score": 0.6664089218599184,
         "num_retrieved": 4
       },
       {
         "id": "Q33",
         "topic_precision": 1.0,
-        "avg_score": 0.6851637075681127,
+        "avg_score": 0.6851637322014813,
         "num_retrieved": 4
       },
       {
         "id": "Q34",
         "topic_precision": 1.0,
-        "avg_score": 0.717314048548218,
+        "avg_score": 0.7173140011795389,
         "num_retrieved": 4
       },
       {
         "id": "Q35",
         "topic_precision": 0.75,
-        "avg_score": 0.6841397367525998,
+        "avg_score": 0.6841397328264669,
         "num_retrieved": 4
       },
       {
         "id": "Q36",
         "topic_precision": 0.25,
-        "avg_score": 0.701812349777925,
+        "avg_score": 0.7018122851183645,
         "num_retrieved": 4
       },
       {
         "id": "Q37",
         "topic_precision": 0.75,
-        "avg_score": 0.7307611539142468,
+        "avg_score": 0.7307611440702987,
         "num_retrieved": 4
       },
       {
         "id": "Q38",
         "topic_precision": 1.0,
-        "avg_score": 0.7584458616901231,
+        "avg_score": 0.7584457886985175,
         "num_retrieved": 4
       },
       {
         "id": "Q39",
         "topic_precision": 1.0,
-        "avg_score": 0.7091177119026004,
+        "avg_score": 0.7091177104134387,
         "num_retrieved": 4
       },
       {
         "id": "Q40",
         "topic_precision": 1.0,
-        "avg_score": 0.657631324821351,
+        "avg_score": 0.6576313092917655,
         "num_retrieved": 4
       },
       {
         "id": "Q41",
         "topic_precision": 1.0,
-        "avg_score": 0.6721260328373125,
+        "avg_score": 0.6721260577633348,
         "num_retrieved": 4
       },
       {
         "id": "Q42",
         "topic_precision": 1.0,
-        "avg_score": 0.618510901468256,
+        "avg_score": 0.6185109324024651,
         "num_retrieved": 4
       },
       {
         "id": "Q43",
         "topic_precision": 1.0,
-        "avg_score": 0.7196234134274385,
+        "avg_score": 0.7196234154287136,
         "num_retrieved": 4
       },
       {
         "id": "Q44",
         "topic_precision": 1.0,
-        "avg_score": 0.6560940289588975,
+        "avg_score": 0.6560940395220767,
         "num_retrieved": 4
       },
       {
         "id": "Q45",
         "topic_precision": 1.0,
-        "avg_score": 0.6244264828351171,
+        "avg_score": 0.6244264969646841,
         "num_retrieved": 4
       },
       {
         "id": "Q46",
         "topic_precision": 1.0,
-        "avg_score": 0.7098848430152046,
+        "avg_score": 0.7098848292888724,
         "num_retrieved": 4
       },
       {
         "id": "Q47",
         "topic_precision": 0.5,
-        "avg_score": 0.5992707130529239,
+        "avg_score": 0.5992706846226022,
         "num_retrieved": 4
       },
       {
         "id": "Q48",
         "topic_precision": 1.0,
-        "avg_score": 0.607835655595076,
+        "avg_score": 0.6078357051465078,
         "num_retrieved": 4
       },
       {
         "id": "Q49",
         "topic_precision": 1.0,
-        "avg_score": 0.6876033588619063,
+        "avg_score": 0.6876033511337227,
         "num_retrieved": 4
       },
       {
         "id": "Q50",
         "topic_precision": 1.0,
-        "avg_score": 0.6772411753542855,
+        "avg_score": 0.677241227807319,
         "num_retrieved": 4
       },
       {
         "id": "Q51",
         "topic_precision": 0.5,
-        "avg_score": 0.5873080321971288,
+        "avg_score": 0.5873080725096386,
         "num_retrieved": 4
       },
       {
         "id": "Q52",
         "topic_precision": 1.0,
-        "avg_score": 0.733652399983531,
+        "avg_score": 0.7336523720564682,
         "num_retrieved": 4
       },
       {
         "id": "Q53",
         "topic_precision": 0.25,
-        "avg_score": 0.7303177071150766,
+        "avg_score": 0.7303177243700821,
         "num_retrieved": 4
       },
       {
         "id": "Q54",
         "topic_precision": 1.0,
-        "avg_score": 0.6889345754632676,
+        "avg_score": 0.6889345790509582,
         "num_retrieved": 4
       },
       {
         "id": "Q55",
         "topic_precision": 0.5,
-        "avg_score": 0.655544916010824,
+        "avg_score": 0.6555449412573656,
         "num_retrieved": 4
       },
       {
         "id": "Q56",
         "topic_precision": 0.5,
-        "avg_score": 0.6775495284325408,
+        "avg_score": 0.677549554342582,
         "num_retrieved": 4
       }
     ]

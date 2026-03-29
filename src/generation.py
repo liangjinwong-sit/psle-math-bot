@@ -233,10 +233,10 @@ def switch_provider(provider: str):
     Switch the LLM provider. Clears the cached instance so the
     next call to _get_llm() creates a new client.
     """
-    global _llm_instance, _llm_provider_used
+    global _llm_instance, _llm_provider_used, LLM_PROVIDER
     _llm_instance = None
     _llm_provider_used = None
-    os.environ["LLM_PROVIDER"] = provider
+    LLM_PROVIDER = provider
 
 
 # Prompt template for topic-specific math tutoring with RAG
