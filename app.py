@@ -1,5 +1,6 @@
 import streamlit as st
 from src.ui import render_qa_tab, render_practice_tab
+from src.generation import get_current_provider
 
 st.set_page_config(
     page_title="PSLE Math Study Bot",
@@ -80,3 +81,22 @@ with tab_qa:
 
 with tab_practice:
     render_practice_tab()
+
+# ── Privacy & Data Notice ──────────────────────────────────────────
+# Responsible AI practice: be transparent about how student data is
+# processed (Week 12 lecture — Ethics of LLMs, AI practitioner
+# checklist: "Label AI-generated content transparently").
+PROVIDER_LABELS = {
+    "gemini": "Google Gemini",
+    "openai": "OpenAI",
+    "groq": "Groq (Llama)",
+    "ollama": "Local Ollama",
+}
+provider_name = PROVIDER_LABELS.get(get_current_provider(), get_current_provider())
+st.markdown("---")
+st.caption(
+    f"**Privacy:** Your questions are sent to **{provider_name}** for processing. "
+    f"No student data is stored on external servers beyond the API call. "
+    f"Practice progress is saved locally on this device only. "
+    f"Answers are AI-generated — please verify important solutions."
+)

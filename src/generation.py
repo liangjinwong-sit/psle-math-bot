@@ -49,9 +49,21 @@ GROQ_MODEL_NAME = "llama-3.1-8b-instant"
 GROQ_TEMPERATURE = 0.2
 
 # Ollama settings (open-source Llama, local, free)
-OLLAMA_MODEL_NAME = "llama3.1:8b"
+OLLAMA_MODEL_NAME = "llama3.2:latest"
 OLLAMA_TEMPERATURE = 0.2
 OLLAMA_BASE_URL = "http://localhost:11434"
+
+# ── Temperature Design Decision ────────────────────────────────────
+# Answer generation uses low temperature (0.2) for deterministic,
+# accurate solutions.  Creative generation functions use higher
+# temperatures to produce varied outputs:
+#   - Question & similar-question generation: 0.7 (high variety so
+#     students don't see repetitive phrasing)
+#   - MCQ distractor generation: 0.4 (moderate — distractors must be
+#     *plausible* wrong answers reflecting common student mistakes,
+#     not random nonsense)
+CREATIVE_TEMPERATURE = 0.7
+MCQ_TEMPERATURE = 0.4
 
 # Retry policy for temporary LLM/API errors.
 MAX_LLM_RETRIES = 2
@@ -221,6 +233,44 @@ def _get_llm(provider: str = None):
         )
 
     return _llm_instance
+
+
+def _get_llm_with_temperature(temperature: float):
+    """Return a *new* LLM instance with a custom temperature.
+
+    Unlike ``_get_llm()`` this does NOT cache the instance, so the
+    default answer-generation model keeps its low temperature.  Used
+    by creative generation functions (question gen, MCQ gen, etc.).
+    """
+    target = _llm_provider_used or LLM_PROVIDER
+
+    if target == "gemini":
+        api_key = os.getenv("GOOGLE_API_KEY")
+        return ChatGoogleGenerativeAI(
+            model=GEMINI_MODEL_NAME, temperature=temperature,
+            google_api_key=api_key,
+        )
+    elif target == "openai":
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=OPENAI_MODEL_NAME, temperature=temperature,
+            api_key=os.getenv("OPENAI_API_KEY"),
+        )
+    elif target == "groq":
+        from langchain_groq import ChatGroq
+        return ChatGroq(
+            model=GROQ_MODEL_NAME, temperature=temperature,
+            api_key=os.getenv("GROQ_API_KEY"),
+        )
+    elif target == "ollama":
+        from langchain_ollama import ChatOllama
+        return ChatOllama(
+            model=OLLAMA_MODEL_NAME, temperature=temperature,
+            base_url=OLLAMA_BASE_URL,
+        )
+    else:
+        # Fallback: use the default cached instance
+        return _get_llm()
 
 
 def get_current_provider() -> str:
@@ -600,9 +650,12 @@ def generate_mcq_options(question: str, correct_answer: str) -> list:
     """
     Generate 4 MCQ options (1 correct + 3 plausible distractors) for a question.
 
+    Uses MCQ_TEMPERATURE (0.4) — moderate creativity so distractors are
+    plausible common-mistake answers rather than random values.
+
     Returns a shuffled list of {"label": "A"/"B"/"C"/"D", "text": ..., "is_correct": bool}.
     """
-    llm = _get_llm()
+    llm = _get_llm_with_temperature(MCQ_TEMPERATURE)
 
     prompt_text = (
         "You are a PSLE Math question writer for Primary 5-6 students in Singapore.\n\n"
@@ -661,8 +714,11 @@ def generate_mcq_options(question: str, correct_answer: str) -> list:
 def generate_similar_question(question: str, topic: str, difficulty: str = "medium") -> dict:
     """
     Generate a similar question to the one the student got wrong, for retry practice.
+
+    Uses CREATIVE_TEMPERATURE (0.7) so the student sees meaningfully
+    different numbers / context each time rather than a near-duplicate.
     """
-    llm = _get_llm()
+    llm = _get_llm_with_temperature(CREATIVE_TEMPERATURE)
     topic_display = get_topic_display_name(topic) if topic else "General"
 
     prompt_text = (

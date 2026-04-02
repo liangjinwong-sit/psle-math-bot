@@ -6,6 +6,8 @@ Provides two main tabs:
 2. Practice Mode - Random questions + AI-generated practice questions
 """
 
+import json
+import os
 import re
 import streamlit as st
 from src.generation import (
@@ -14,6 +16,40 @@ from src.generation import (
 )
 from src.practice import get_random_question, get_final_answer, generate_practice_question, estimate_difficulty
 from src.topic_classifier import get_all_topics
+
+# ── Persistent Weak-Topic Tracker ──────────────────────────────────
+# Saves performance data to a JSON file so progress survives across
+# browser sessions.  Demonstrates "agent memory" (Week 10 lecture:
+# episodic memory that persists beyond a single interaction).
+WEAK_TOPICS_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "data", "weak_topics.json",
+)
+
+
+def _load_weak_topics() -> dict:
+    """Load persisted weak-topic data from disk into session state."""
+    if "weak_topics" not in st.session_state:
+        if os.path.exists(WEAK_TOPICS_FILE):
+            try:
+                with open(WEAK_TOPICS_FILE, "r") as f:
+                    st.session_state["weak_topics"] = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                st.session_state["weak_topics"] = {}
+        else:
+            st.session_state["weak_topics"] = {}
+    return st.session_state["weak_topics"]
+
+
+def _save_weak_topics():
+    """Persist the current weak-topic tracker to disk."""
+    tracker = st.session_state.get("weak_topics", {})
+    try:
+        os.makedirs(os.path.dirname(WEAK_TOPICS_FILE), exist_ok=True)
+        with open(WEAK_TOPICS_FILE, "w") as f:
+            json.dump(tracker, f, indent=2)
+    except IOError:
+        pass  # Non-critical — UI still works from session state
 
 
 def _escape_dollars(text: str) -> str:
@@ -125,11 +161,9 @@ def render_qa_tab():
 
 
 def _update_weak_topics(topic_display: str, is_correct: bool):
-    """Update the session weak topic tracker."""
-    if "weak_topics" not in st.session_state:
-        st.session_state["weak_topics"] = {}
+    """Update the weak topic tracker and persist to disk."""
+    tracker = _load_weak_topics()
 
-    tracker = st.session_state["weak_topics"]
     if topic_display not in tracker:
         tracker[topic_display] = {"correct": 0, "total": 0}
 
@@ -137,13 +171,14 @@ def _update_weak_topics(topic_display: str, is_correct: bool):
     if is_correct:
         tracker[topic_display]["correct"] += 1
 
+    _save_weak_topics()
+
 
 def _render_weak_topics():
-    """Display weak topic suggestions based on session performance."""
-    if "weak_topics" not in st.session_state or not st.session_state["weak_topics"]:
+    """Display weak topic suggestions based on persisted performance data."""
+    tracker = _load_weak_topics()
+    if not tracker:
         return
-
-    tracker = st.session_state["weak_topics"]
 
     # ── Score Summary Panel ──
     total_correct = sum(d["correct"] for d in tracker.values())
@@ -173,6 +208,12 @@ def _render_weak_topics():
             )
             + " -- you've got this!"
         )
+
+    # Allow students to reset their progress
+    if st.button("Reset My Progress", key="reset_weak_topics", type="secondary"):
+        st.session_state["weak_topics"] = {}
+        _save_weak_topics()
+        st.rerun()
 
 
 def render_practice_tab():

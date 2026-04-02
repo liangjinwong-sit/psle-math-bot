@@ -101,40 +101,106 @@ BENCHMARK_QUESTIONS = [
     {"id": "Q56", "question": "A shop sold 12, 18, 15, 20, and 10 ice creams over 5 days. What was the average number sold per day?", "expected_answer": "15", "topic": "data_handling", "method": "mean / average"},
 ]
 
+# Delay between LLM calls to avoid rate limiting (especially Gemini free tier).
+# Set to 0 for paid APIs, 2-3 for free tier Gemini.
+EVAL_DELAY_SECONDS = 2
+
 
 def extract_numeric(text: str) -> Optional[str]:
-    """Extract the core numeric value from an answer string for comparison."""
+    """
+    Extract the core numeric value from an answer string for comparison.
+    Handles formats like: "20", "$12", "25%", "3/5", "0.35", "40 cm²", "3:4"
+
+    For long LLM responses, looks for the number after "Final Answer:" first.
+    For short strings (expected answers), extracts the first number directly.
+
+    Returns a cleaned string for comparison, or None if no number found.
+    """
     if not text:
         return None
+
     text = text.strip()
+
+    # ── Strategy 1: If the text contains "Final Answer:", extract from there ──
+    # This handles the full LLM response format:
+    #   "1. **Final Answer:** 20\n2. **Step-by-Step Solution:**..."
+    # Without this, we'd grab "1" from the "1." prefix instead of "20".
+    fa_patterns = [
+        r"\*?\*?Final\s+Answer:?\*?\*?\s*(.{1,100})",   # **Final Answer:** 20
+        r"final\s+answer\s*(?:is|=|:)\s*(.{1,100})",     # final answer is 20
+    ]
+    for pattern in fa_patterns:
+        fa_match = re.search(pattern, text, re.IGNORECASE)
+        if fa_match:
+            # Only look at the first line after "Final Answer:"
+            answer_region = fa_match.group(1).split("\n")[0].strip()
+            # Try fraction first (e.g., "3/5")
+            frac = re.search(r"(\d+)\s*/\s*(\d+)", answer_region)
+            if frac:
+                return f"{frac.group(1)}/{frac.group(2)}"
+            # Try ratio (e.g., "3:4")
+            ratio = re.search(r"(\d+)\s*:\s*(\d+)", answer_region)
+            if ratio:
+                return f"{ratio.group(1)}:{ratio.group(2)}"
+            # Try number (e.g., "20", "$60", "2.45")
+            num = re.search(r"-?\d+\.?\d*", answer_region)
+            if num:
+                return num.group(0)
+
+    # ── Strategy 2: Direct extraction (for short expected-answer strings) ──
+    # Try fraction first
     frac_match = re.search(r"(\d+)\s*/\s*(\d+)", text)
     if frac_match:
         return f"{frac_match.group(1)}/{frac_match.group(2)}"
+
+    # Try ratio
+    ratio_match = re.search(r"(\d+)\s*:\s*(\d+)", text)
+    if ratio_match:
+        return f"{ratio_match.group(1)}:{ratio_match.group(2)}"
+
+    # Find decimal or integer numbers
     num_match = re.search(r"-?\d+\.?\d*", text)
     if num_match:
         return num_match.group(0)
+
     return None
 
 
 def answers_match(expected: str, actual: str) -> bool:
-    """Check if the actual answer matches the expected answer."""
+    """
+    Check if the actual answer matches the expected answer.
+    Handles numeric comparison, fraction matching, ratio matching,
+    and common formats.
+    """
     exp_num = extract_numeric(expected)
     act_num = extract_numeric(actual)
+
     if exp_num is None or act_num is None:
         return False
+
+    # Direct string match (handles "3/5" == "3/5", "3:4" == "3:4")
     if exp_num == act_num:
         return True
+
+    # Try numeric comparison (handles "20" vs "20.0", fractions vs decimals)
     try:
         if "/" in exp_num:
             parts = exp_num.split("/")
             exp_val = float(parts[0]) / float(parts[1])
+        elif ":" in exp_num:
+            # Ratios can't be compared as single numbers
+            return False
         else:
             exp_val = float(exp_num)
+
         if "/" in act_num:
             parts = act_num.split("/")
             act_val = float(parts[0]) / float(parts[1])
+        elif ":" in act_num:
+            return False
         else:
             act_val = float(act_num)
+
         return abs(exp_val - act_val) < 0.01
     except (ValueError, ZeroDivisionError):
         return False
@@ -145,11 +211,11 @@ def evaluate_topic_classification(questions: List[Dict]) -> Dict:
     print("\n" + "=" * 60)
     print("EVALUATION 1: Topic Classification Accuracy")
     print("=" * 60)
-    
+
     correct = 0
     total = len(questions)
     topic_results = {}
-    
+
     for q in questions:
         predicted = classify_question(q["question"])
         expected = q["topic"]
@@ -167,7 +233,7 @@ def evaluate_topic_classification(questions: List[Dict]) -> Dict:
             })
         status = "PASS" if is_correct else "FAIL"
         print(f"  [{status}] {q['id']}: expected={expected}, got={predicted}")
-    
+
     accuracy = correct / total if total > 0 else 0
     print(f"\n  Overall: {correct}/{total} ({accuracy * 100:.1f}%)")
     print(f"\n  Per-topic breakdown:")
@@ -176,7 +242,7 @@ def evaluate_topic_classification(questions: List[Dict]) -> Dict:
         print(f"    {get_topic_display_name(topic)}: {data['correct']}/{data['total']} ({t_acc * 100:.0f}%)")
         for err in data["errors"]:
             print(f"      [FAIL] {err['id']}: predicted '{err['predicted']}' -- \"{err['question']}...\"")
-    
+
     return {"accuracy": accuracy, "correct": correct, "total": total, "per_topic": topic_results}
 
 
@@ -185,12 +251,12 @@ def evaluate_retrieval_relevance(questions: List[Dict], k: int = 4) -> Dict:
     print("\n" + "=" * 60)
     print("EVALUATION 2: Retrieval Relevance")
     print("=" * 60)
-    
+
     total_docs = 0
     topic_match_docs = 0
     all_scores = []
     details = []
-    
+
     for q in questions:
         results = retrieve_with_scores(q["question"], k=k)
         q_topic_matches = 0
@@ -207,28 +273,28 @@ def evaluate_retrieval_relevance(questions: List[Dict], k: int = 4) -> Dict:
         status = "PASS" if precision >= 0.5 else "WARN" if precision > 0 else "FAIL"
         print(f"  [{status}] {q['id']} [{q['topic']}]: {q_topic_matches}/{len(results)} on-topic, avg_sim={avg_score:.3f}")
         details.append({"id": q["id"], "topic_precision": precision, "avg_score": avg_score, "num_retrieved": len(results)})
-    
+
     overall_precision = topic_match_docs / total_docs if total_docs > 0 else 0
     overall_avg_score = sum(all_scores) / len(all_scores) if all_scores else 0
     print(f"\n  Overall topic precision: {topic_match_docs}/{total_docs} ({overall_precision * 100:.1f}%)")
     print(f"  Overall avg similarity: {overall_avg_score:.3f}")
-    
+
     return {"topic_precision": overall_precision, "avg_similarity": overall_avg_score, "total_docs": total_docs, "topic_match_docs": topic_match_docs, "details": details}
 
 
 def evaluate_answer_correctness(questions: List[Dict], k: int = 4) -> Dict:
     """Evaluate end-to-end answer correctness using the full RAG + LLM pipeline."""
     from src.generation import answer_question, get_current_provider
-    
+
     print("\n" + "=" * 60)
     print(f"EVALUATION 3: Answer Correctness (provider: {get_current_provider()})")
     print("=" * 60)
-    
+
     correct = 0
     total = len(questions)
     details = []
     total_time = 0
-    
+
     for i, q in enumerate(questions):
         print(f"  [{i + 1}/{total}] {q['id']}: {q['question'][:50]}...", end=" ", flush=True)
         start = time.time()
@@ -248,20 +314,176 @@ def evaluate_answer_correctness(questions: List[Dict], k: int = 4) -> Dict:
             total_time += elapsed
             print(f"[FAIL] ERROR: {str(e)[:60]}")
             details.append({"id": q["id"], "correct": False, "expected": q["expected_answer"], "error": str(e)[:100], "time_seconds": elapsed})
-    
+
+        # Rate-limit delay to avoid API throttling (especially Gemini free tier)
+        if EVAL_DELAY_SECONDS > 0 and i < total - 1:
+            time.sleep(EVAL_DELAY_SECONDS)
+
     accuracy = correct / total if total > 0 else 0
     avg_time = total_time / total if total > 0 else 0
     print(f"\n  Accuracy: {correct}/{total} ({accuracy * 100:.1f}%)")
     print(f"  Avg time per question: {avg_time:.1f}s")
     print(f"  Total evaluation time: {total_time:.1f}s")
-    
+
     return {"accuracy": accuracy, "correct": correct, "total": total, "avg_time_seconds": avg_time, "total_time_seconds": total_time, "details": details}
+
+
+def evaluate_explanation_quality(
+    questions: List[Dict],
+    k: int = 4,
+    judge_provider: str = None,
+) -> Dict:
+    """Evaluate the *quality* of RAG-generated explanations using an LLM judge.
+
+    Unlike ``evaluate_answer_correctness`` which only checks the final
+    numeric answer, this function asks a **separate LLM** to rate the
+    explanation on three rubric dimensions:
+
+        1. **Clarity** – Is the language simple enough for an 11-12 year old?
+        2. **Step-by-step correctness** – Are all reasoning steps logically
+           sound and mathematically accurate?
+        3. **Pedagogical value** – Does the explanation teach the concept,
+           not just give the answer?
+
+    Each dimension is scored 1-5.  The judge model should ideally be a
+    *different* provider from the one that generated the answer to avoid
+    sycophantic self-evaluation (Week 8 lecture concept).
+
+    Args:
+        questions: Subset of BENCHMARK_QUESTIONS to evaluate.
+        k: Number of retrieval docs per question.
+        judge_provider: Provider for the judge LLM (default: picks a
+            different provider from the generator when possible).
+
+    Returns:
+        Dict with per-question scores and aggregate means.
+    """
+    from src.generation import answer_question, get_current_provider, _get_llm_with_temperature
+
+    gen_provider = get_current_provider()
+
+    # Pick a judge that differs from the generator to reduce self-bias.
+    if judge_provider is None:
+        fallback_order = ["gemini", "openai", "groq"]
+        judge_provider = next(
+            (p for p in fallback_order if p != gen_provider), gen_provider
+        )
+
+    print("\n" + "=" * 60)
+    print(f"EVALUATION 4: Explanation Quality (LLM-as-Judge)")
+    print(f"  Generator: {gen_provider}  |  Judge: {judge_provider}")
+    print("=" * 60)
+
+    try:
+        judge_llm = _get_llm_with_temperature(0.0)  # deterministic judge
+    except Exception as e:
+        print(f"  [FAIL] Could not initialise judge LLM ({judge_provider}): {e}")
+        return {"error": str(e)}
+
+    JUDGE_PROMPT = (
+        "You are an expert PSLE Math education evaluator.\n\n"
+        "A student asked: {question}\n"
+        "Expected answer: {expected}\n\n"
+        "The tutoring bot replied:\n"
+        "---\n{response}\n---\n\n"
+        "Rate the bot's explanation on three criteria (1 = poor, 5 = excellent):\n\n"
+        "1. CLARITY: Is the language simple enough for an 11-12 year old "
+        "Primary 5-6 student in Singapore? Avoids jargon?\n"
+        "2. STEP_CORRECTNESS: Are all mathematical steps logically sound "
+        "and lead to the correct answer?\n"
+        "3. PEDAGOGICAL_VALUE: Does the explanation teach the underlying "
+        "concept, not just give the number? Would a student learn from it?\n\n"
+        "Respond in EXACTLY this format (numbers only, 1-5):\n"
+        "CLARITY: <score>\n"
+        "STEP_CORRECTNESS: <score>\n"
+        "PEDAGOGICAL_VALUE: <score>\n"
+    )
+
+    details = []
+    all_clarity, all_steps, all_pedagogy = [], [], []
+
+    # Use a small sample for speed (10 questions spread across topics)
+    sample = questions[:10] if len(questions) > 10 else questions
+
+    for i, q in enumerate(sample):
+        print(f"  [{i+1}/{len(sample)}] {q['id']}: {q['question'][:50]}...", end=" ", flush=True)
+        try:
+            result = answer_question(q["question"], topic=q["topic"], k=k)
+            response_text = result["answer"]
+
+            judge_input = JUDGE_PROMPT.format(
+                question=q["question"],
+                expected=q["expected_answer"],
+                response=response_text,
+            )
+            from src.generation import _invoke_with_retries
+            judge_result = _invoke_with_retries(lambda: judge_llm.invoke(judge_input))
+            judge_output = judge_result.content.strip()
+
+            # Parse scores
+            scores = {}
+            for line in judge_output.split("\n"):
+                line = line.strip()
+                for key in ["CLARITY", "STEP_CORRECTNESS", "PEDAGOGICAL_VALUE"]:
+                    if line.upper().startswith(key + ":"):
+                        try:
+                            val = int(re.search(r"\d", line.split(":")[1]).group())
+                            scores[key.lower()] = min(max(val, 1), 5)
+                        except (ValueError, AttributeError):
+                            scores[key.lower()] = 3  # fallback mid-score
+
+            clarity = scores.get("clarity", 3)
+            step_correctness = scores.get("step_correctness", 3)
+            pedagogical_value = scores.get("pedagogical_value", 3)
+
+            all_clarity.append(clarity)
+            all_steps.append(step_correctness)
+            all_pedagogy.append(pedagogical_value)
+
+            avg = round((clarity + step_correctness + pedagogical_value) / 3, 1)
+            print(f"C={clarity} S={step_correctness} P={pedagogical_value} avg={avg}")
+
+            details.append({
+                "id": q["id"],
+                "clarity": clarity,
+                "step_correctness": step_correctness,
+                "pedagogical_value": pedagogical_value,
+                "average": avg,
+            })
+        except Exception as e:
+            print(f"[ERROR] {str(e)[:60]}")
+            details.append({"id": q["id"], "error": str(e)[:100]})
+
+        if EVAL_DELAY_SECONDS > 0 and i < len(sample) - 1:
+            time.sleep(EVAL_DELAY_SECONDS)
+
+    # Aggregate
+    mean_c = sum(all_clarity) / len(all_clarity) if all_clarity else 0
+    mean_s = sum(all_steps) / len(all_steps) if all_steps else 0
+    mean_p = sum(all_pedagogy) / len(all_pedagogy) if all_pedagogy else 0
+    mean_all = round((mean_c + mean_s + mean_p) / 3, 2)
+
+    print(f"\n  Mean Clarity:           {mean_c:.2f} / 5")
+    print(f"  Mean Step Correctness:  {mean_s:.2f} / 5")
+    print(f"  Mean Pedagogical Value: {mean_p:.2f} / 5")
+    print(f"  Overall Quality:        {mean_all:.2f} / 5")
+
+    return {
+        "judge_provider": judge_provider,
+        "generator_provider": gen_provider,
+        "sample_size": len(sample),
+        "mean_clarity": round(mean_c, 2),
+        "mean_step_correctness": round(mean_s, 2),
+        "mean_pedagogical_value": round(mean_p, 2),
+        "overall_quality": mean_all,
+        "details": details,
+    }
 
 
 def run_evaluation(quick: bool = False, topic_filter: str = None, provider: str = None):
     """
     Run the full evaluation suite.
-    
+
     Args:
         quick: If True, skip LLM-based answer correctness (eval 3)
         topic_filter: If set, only evaluate questions from this topic
@@ -274,35 +496,42 @@ def run_evaluation(quick: bool = False, topic_filter: str = None, provider: str 
         from src.generation import switch_provider
         switch_provider(provider)
         print(f"  LLM provider: {provider}")
-    
+
     if topic_filter:
         questions = [q for q in questions if q["topic"] == topic_filter]
         if not questions:
             print(f"No benchmark questions found for topic: {topic_filter}")
             return
         print(f"Filtering to topic: {get_topic_display_name(topic_filter)} ({len(questions)} questions)")
-    
+
     print(f"\nRunning evaluation on {len(questions)} benchmark questions...")
-    
+
     classification_results = evaluate_topic_classification(questions)
-    
+
     try:
         retrieval_results = evaluate_retrieval_relevance(questions)
     except Exception as e:
         print(f"\n  [FAIL] Retrieval evaluation failed: {e}")
         print("     Make sure you've built the index: python build_index.py")
         retrieval_results = None
-    
+
     answer_results = None
+    explanation_results = None
     if not quick:
         try:
             answer_results = evaluate_answer_correctness(questions)
         except Exception as e:
             print(f"\n  [FAIL] Answer evaluation failed: {e}")
             print("     Make sure your API key is set in .env")
+
+        # LLM-as-Judge explanation quality (uses cross-provider judging)
+        try:
+            explanation_results = evaluate_explanation_quality(questions)
+        except Exception as e:
+            print(f"\n  [SKIP] Explanation quality eval failed: {e}")
     else:
         print("\n  [SKIP] Skipping answer correctness (quick mode). Run without --quick for full eval.")
-    
+
     # Summary
     print("\n" + "=" * 60)
     print("EVALUATION SUMMARY")
@@ -316,8 +545,15 @@ def run_evaluation(quick: bool = False, topic_filter: str = None, provider: str 
     if answer_results:
         print(f"  Answer correctness: {answer_results['accuracy'] * 100:.1f}%")
         print(f"  Avg response time: {answer_results['avg_time_seconds']:.1f}s")
+    if explanation_results and "error" not in explanation_results:
+        print(f"  Explanation quality (LLM-as-Judge): {explanation_results['overall_quality']}/5")
+        print(f"    Clarity: {explanation_results['mean_clarity']}/5  |  "
+              f"Steps: {explanation_results['mean_step_correctness']}/5  |  "
+              f"Pedagogy: {explanation_results['mean_pedagogical_value']}/5")
+        print(f"    Judge: {explanation_results['judge_provider']}  |  "
+              f"Generator: {explanation_results['generator_provider']}")
     print("=" * 60)
-    
+
     results = {
         "num_questions": len(questions),
         "topic_filter": topic_filter,
@@ -325,8 +561,9 @@ def run_evaluation(quick: bool = False, topic_filter: str = None, provider: str 
         "classification": classification_results,
         "retrieval": retrieval_results,
         "answer": answer_results,
+        "explanation_quality": explanation_results,
     }
-    
+
     output_path = "data/benchmark/evaluation_results.json"
     try:
         with open(output_path, "w") as f:
@@ -377,5 +614,5 @@ if __name__ == "__main__":
         help="LLM provider for answer generation (default: gemini)",
     )
     args = parser.parse_args()
-    
+
     run_evaluation(quick=args.quick, topic_filter=args.topic, provider=args.provider)

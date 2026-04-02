@@ -173,7 +173,8 @@ SOLUTION: [Step-by-step solution]
 ANSWER: [Final numeric answer only]"""
 
     try:
-        llm = _get_llm()
+        from src.generation import _get_llm_with_temperature, CREATIVE_TEMPERATURE
+        llm = _get_llm_with_temperature(CREATIVE_TEMPERATURE)
         result = llm.invoke(prompt_text)
         response = result.content.strip()
         

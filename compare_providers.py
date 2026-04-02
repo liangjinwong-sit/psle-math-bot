@@ -45,8 +45,8 @@ COMPARISON_QUESTIONS = [
 PROVIDER_INFO = {
     "gemini": {"name": "Gemini 2.5 Flash", "type": "Proprietary (Cloud)", "cost": "Free tier"},
     "openai": {"name": "GPT-4o-mini", "type": "Proprietary (Cloud)", "cost": "Paid"},
-    "groq":   {"name": "Llama 3.1 8B", "type": "Open-source (Cloud)", "cost": "Free"},
-    "ollama": {"name": "Llama 3.1 8B", "type": "Open-source (Local)", "cost": "Free"},
+    "groq":   {"name": "Llama 3.1 8B (Groq)", "type": "Open-source (Cloud)", "cost": "Free"},
+    "ollama": {"name": "Llama 3.2 3B (Local)", "type": "Open-source (Local)", "cost": "Free"},
 }
 
 

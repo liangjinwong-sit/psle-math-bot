@@ -1,166 +1,259 @@
 # PSLE Math Study Bot
 
-A RAG-powered math tutoring chatbot for Primary 5–6 students, built with the GSM8K dataset, FAISS, and Google Gemini.
+An intelligent RAG-powered math tutoring chatbot for Singapore Primary 5–6 students preparing for the PSLE. Built with a Retrieval-Augmented Generation pipeline over the GSM8K dataset, a ReAct tool agent for arithmetic accuracy, and a full practice + evaluation suite.
+
+**AAI3008 Large Language Models — Group 7**
+
+---
 
 ## Features
 
-- **RAG-Powered Q&A** — Retrieves similar worked examples from 7,473 GSM8K problems, then generates step-by-step solutions grounded in those examples.
-- **Topic-Filtered Retrieval** — Questions are classified into 6 PSLE math topic families; retrieval can be filtered by topic for more relevant examples.
-- **Lexical Reranking + Diversity Selection** — Retrieved candidates are reranked using a combination of semantic and lexical similarity, then selected for parent-document diversity.
-- **Structured Citations** — Each answer shows the retrieved reference problems with topic, similarity score, and solution method snippet.
-- **Confidence-Based Fallback** — When retrieval similarity is low, the bot switches to an LLM-only prompt rather than using potentially irrelevant context.
-- **ReAct Tool Agent** — A calculator tool (AST-based, safe) is invoked via a ReAct reasoning loop for arithmetic-heavy questions, improving calculation accuracy.
-- **Practice Mode** — Pull random questions from the GSM8K test set, filtered by topic and difficulty.
-- **AI Question Generation** — LLM generates fresh practice questions on any topic at easy/medium/hard difficulty.
-- **Auto-Marking** — LLM judges student answers with feedback, mistake explanations, progressive hints, and MCQ generation.
-- **Weak Topic Tracking** — Session-based performance tracker highlights topics the student needs to practise more.
-- **Evaluation Suite** — Automated benchmark with 56 questions measuring topic classification accuracy, retrieval relevance, and answer correctness.
+### Ask a Question (RAG-Powered Q&A)
+
+The core Q&A mode retrieves similar worked examples from 7,473 GSM8K problems, then generates step-by-step solutions grounded in those examples. Questions are automatically classified into one of 6 PSLE math topic families using a keyword + regex classifier, and retrieval can optionally be filtered by topic. Retrieved candidates go through lexical reranking (combining semantic similarity with keyword overlap) and diversity selection (preferring different parent problems) before being passed to the LLM. When retrieval confidence is low (below the tuned 0.35 threshold), the system falls back to an LLM-only prompt rather than feeding potentially irrelevant context. For arithmetic-heavy questions, a ReAct tool agent with an AST-based safe calculator is automatically invoked to improve calculation accuracy. Every answer includes structured citations showing the retrieved reference problems with topic, similarity score, and solution method snippet.
+
+### Practice Mode
+
+Students can practise with random questions pulled from the GSM8K test set, filtered by topic and difficulty (easy/medium/hard), or request the LLM to generate fresh practice questions on any topic. Two answer modes are supported: free-text short answer and multiple choice (with LLM-generated plausible distractors). The system auto-marks student answers with LLM-judged feedback and provides "What did I do wrong?" mistake explanations, progressive hints (3 levels, revealed one at a time), and "Try a Similar One" follow-up question generation. A persistent weak topic tracker records performance to a JSON file (survives browser refresh), displays per-topic accuracy, and flags topics where the student scores below 50% after 2+ attempts. Students can reset their progress at any time.
+
+### Multi-Provider LLM Support
+
+The bot supports 4 LLM providers that can be switched via environment variable: Google Gemini (`gemini-2.5-flash`, free tier), OpenAI (`gpt-4o-mini`, paid), Groq (`llama-3.1-8b-instant`, free cloud), and Ollama (`llama3.2:latest`, local). Temperature is tuned per task: 0.2 for answer generation (deterministic accuracy), 0.7 for question/similar-question generation (creative variety), and 0.4 for MCQ distractor generation (plausible but wrong).
+
+### Evaluation Suite
+
+An automated benchmark with 56 questions across all 6 topics measures topic classification accuracy, retrieval relevance, answer correctness, and LLM-as-judge explanation quality (3-dimension rubric: Clarity, Step Correctness, Pedagogical Value with cross-provider judging to avoid sycophantic self-evaluation). A separate provider comparison script produces side-by-side answer comparisons and accuracy/speed tables across all 4 providers.
+
+### Security & Ethics
+
+User input is sanitised against prompt injection attempts (regex-based input filtering + context injection stripping on retrieved documents). A privacy notice in the UI transparently tells students which LLM provider processes their data and that practice progress is stored locally only.
+
+---
 
 ## Tech Stack
 
 | Component | Technology |
-|-----------|-----------|
-| Dataset | GSM8K (Grade School Math 8K) — 7,473 training examples |
-| Embeddings | sentence-transformers (`all-MiniLM-L6-v2`) — runs locally |
-| Vector Store | FAISS (local, no external dependencies) |
-| LLM | Google Gemini (`gemini-2.5-flash`) — free tier available |
+|---|---|
+| Dataset | GSM8K (Grade School Math 8K) — 7,473 training examples, MIT license |
+| Embeddings | `sentence-transformers` (`all-MiniLM-L6-v2`) — runs locally, no API calls |
+| Vector Store | FAISS (`faiss-cpu`) — local, no external dependencies |
+| LLM | Google Gemini (`gemini-2.5-flash`) default; also supports OpenAI, Groq, Ollama |
 | Framework | LangChain for RAG pipeline orchestration |
+| Agent | ReAct reasoning loop with AST-based safe calculator tool |
 | UI | Streamlit |
+| Evaluation | Custom benchmark suite + LLM-as-judge + `compare_providers.py` |
+
+---
 
 ## Project Structure
 
 ```
 psle-math-bot/
-├── app.py                          # Streamlit entry point
-├── build_index.py                  # Build FAISS index from GSM8K (configurable chunking)
-├── requirements.txt                # Python dependencies (pinned)
-├── .env.example                    # API key template
+├── app.py                     # Streamlit entry point
+├── build_index.py             # Build FAISS index from GSM8K (configurable chunking)
+├── compare_providers.py       # Multi-provider answer comparison + eval table
+├── generate_charts.py         # Generate evaluation result charts
+├── requirements.txt           # Python dependencies (pinned versions)
+├── .env.example               # API key template (copy to .env)
 ├── data/
+│   ├── weak_topics.json       # Persistent student performance tracker
 │   └── benchmark/
-│       └── benchmark_questions.md  # Human-readable benchmark set
+│       └── benchmark_questions.md
+├── index/
+│   └── psle_faiss/            # FAISS index files (generated by build_index.py)
 ├── src/
 │   ├── __init__.py
-│   ├── ingest.py                   # GSM8K dataset loading + topic tagging + chunking modes
-│   ├── retrieval.py                # FAISS index, lexical reranking, diversity selection
-│   ├── generation.py               # Gemini LLM generation, auto-marking, hints, ReAct agent
-│   ├── topic_classifier.py         # Keyword + regex PSLE topic classifier
-│   ├── tools.py                    # Safe AST-based calculator tool for agent
-│   ├── practice.py                 # Random questions + AI question generation
-│   ├── evaluate.py                 # Evaluation suite (classification, retrieval, answers)
-│   └── ui.py                       # Streamlit UI components
-├── test_gemini_models.py           # Utility: check available Gemini models
-└── test_topics.py                  # Utility: verify topic metadata in index
+│   ├── ingest.py              # GSM8K dataset loading, topic tagging, chunking modes
+│   ├── retrieval.py           # FAISS search, lexical reranking, diversity selection
+│   ├── generation.py          # LLM generation, auto-marking, hints, ReAct agent, multi-provider
+│   ├── topic_classifier.py    # Keyword + regex PSLE topic classifier (6 families)
+│   ├── tools.py               # AST-based safe calculator tool for agent
+│   ├── practice.py            # Random question selection + AI question generation
+│   ├── evaluate.py            # Evaluation suite (classification, retrieval, answers, LLM-as-judge)
+│   └── ui.py                  # Streamlit UI components (Q&A tab, Practice tab, weak topics)
+├── demo_notebook.ipynb        # Jupyter notebook demonstrating pipeline components
+├── test_gemini_models.py      # Utility: check available Gemini models
+└── test_topics.py             # Utility: verify topic metadata in index
 ```
+
+---
 
 ## Setup
 
-### 1. Install Dependencies
+### Prerequisites
+
+- Python 3.10 or higher
+- (Optional) Ollama installed locally if you want to use the local LLM provider
+
+### 1. Clone and install dependencies
 
 ```bash
+git clone <repository-url>
+cd psle-math-bot
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure API Key
+### 2. Configure API keys
 
 ```bash
 cp .env.example .env
-# Edit .env and add your Gemini API key
 ```
 
-Get a free API key at: https://aistudio.google.com/app/apikey
+Edit `.env` and add at least one API key:
 
-### 3. Build FAISS Index
+```
+# Required (pick at least one):
+GOOGLE_API_KEY=your_google_api_key_here      # Free at https://aistudio.google.com/app/apikey
+OPENAI_API_KEY=your_openai_api_key_here      # https://platform.openai.com/api-keys
+GROQ_API_KEY=your_groq_api_key_here          # Free at https://console.groq.com/keys
+
+# To switch default provider (default: gemini):
+LLM_PROVIDER=gemini                          # Options: gemini, openai, groq, ollama
+```
+
+For Ollama (fully local, no API key needed):
+```bash
+ollama pull llama3.2:latest
+# Then set LLM_PROVIDER=ollama in .env
+```
+
+### 3. Build the FAISS index
 
 ```bash
 python build_index.py
 ```
 
-This downloads GSM8K and creates the vector index (~5–10 minutes on first run).
+This downloads the GSM8K dataset from HuggingFace and builds the vector index. Takes approximately 5–10 minutes on first run (subsequent runs use cached data).
 
 Chunking options:
 ```bash
-python build_index.py --chunk-mode full     # Default: one doc per problem
-python build_index.py --chunk-mode step     # Step-window chunks only
-python build_index.py --chunk-mode hybrid   # Both full + step-window chunks
+python build_index.py --chunk-mode full      # Default: one document per problem
+python build_index.py --chunk-mode step      # Step-window chunks only
+python build_index.py --chunk-mode hybrid    # Both full + step-window chunks
 ```
 
-### 4. Run the App
+### 4. Run the application
 
 ```bash
 streamlit run app.py
 ```
 
-### 5. Run Evaluation (optional)
+The app opens at `http://localhost:8501`. You'll see two tabs: **Ask a Question** and **Practice Mode**.
+
+### 5. Run evaluation (optional)
 
 ```bash
-python -m src.evaluate              # Full evaluation (needs API key)
-python -m src.evaluate --quick      # Classification + retrieval only (no API calls)
-python -m src.evaluate --topic percentage  # Single topic
+python -m src.evaluate                       # Full evaluation (default: gemini)
+python -m src.evaluate --quick               # Classification + retrieval only (no LLM calls)
+python -m src.evaluate --topic percentage    # Evaluate a single topic
+python -m src.evaluate --provider openai     # Use a different LLM provider
+python -m src.evaluate --provider groq       # Use Groq (Llama 3.1)
 ```
 
-## RAG + Agent Architecture
+Compare all providers side-by-side:
+```bash
+python compare_providers.py                  # Full comparison (answers + eval table)
+python compare_providers.py --answers-only   # Just side-by-side answers
+python compare_providers.py --table-only     # Just the eval summary table
+```
+
+---
+
+## Architecture
 
 ```
 Student Question
       │
       ▼
-┌─────────────────────┐
-│  Topic Classifier    │  ← keyword + regex classification into 6 PSLE topics
-└──────────┬──────────┘
+┌─────────────────────────┐
+│  Input Sanitisation      │  ← prompt injection defense (regex filtering)
+└──────────┬──────────────┘
            ▼
-┌─────────────────────┐
-│  Local Embeddings    │  ← sentence-transformers (all-MiniLM-L6-v2)
-└──────────┬──────────┘
+┌─────────────────────────┐
+│  Topic Classifier        │  ← keyword + regex → 6 PSLE topic families
+└──────────┬──────────────┘
            ▼
-┌─────────────────────┐
-│  FAISS Vector Search │  ← 7,473 indexed examples, optional topic filtering
-└──────────┬──────────┘
+┌─────────────────────────┐
+│  Local Embeddings        │  ← sentence-transformers (all-MiniLM-L6-v2)
+└──────────┬──────────────┘
            ▼
-┌─────────────────────┐
-│  Lexical Reranking   │  ← semantic + keyword overlap scoring
-│  + Diversity Select  │  ← prefer different parent problems
-└──────────┬──────────┘
+┌─────────────────────────┐
+│  FAISS Vector Search     │  ← 7,473 indexed examples, optional topic filter
+└──────────┬──────────────┘
            ▼
-┌─────────────────────┐
-│  Confidence Check    │  ← similarity threshold → fallback if low
-└──────────┬──────────┘
+┌─────────────────────────┐
+│  Lexical Reranking       │  ← semantic + keyword overlap scoring
+│  + Diversity Selection   │  ← prefer different parent problems
+└──────────┬──────────────┘
            ▼
-┌─────────────────────┐
-│  Routing Decision    │  ← is_calculation_heavy? → Agent or RAG
-└──────┬────────┬─────┘
+┌─────────────────────────┐
+│  Context Injection Strip │  ← remove suspicious lines from retrieved text
+└──────────┬──────────────┘
+           ▼
+┌─────────────────────────┐
+│  Confidence Check        │  ← threshold 0.35 → fallback if low similarity
+└──────────┬──────────────┘
+           ▼
+┌─────────────────────────┐
+│  Routing Decision        │  ← is_calculation_heavy? → Agent or RAG
+└──────┬────────┬─────────┘
        │        │
    RAG Path  Agent Path
        │        │
        ▼        ▼
-┌──────────┐  ┌──────────────────┐
-│ Gemini   │  │ ReAct Loop       │
-│ LLM      │  │ THINK→ACT→OBSERVE│
-│ + context│  │ + calculator tool │
-└──────┬───┘  └────────┬─────────┘
+┌──────────┐  ┌────────────────────┐
+│  LLM     │  │  ReAct Loop        │
+│  + RAG   │  │  THINK → ACT →     │
+│  context │  │  OBSERVE + calc    │
+└──────┬───┘  └────────┬───────────┘
        │               │
        └───────┬───────┘
                ▼
-        Answer + Citations
+      Answer + Citations
 ```
+
+---
 
 ## PSLE Topic Families
 
-The bot covers 6 core PSLE math topic families:
+The classifier covers the 6 core PSLE math topic families:
 
-1. **Fractions & Decimals** — operations, comparisons, conversions
+1. **Fractions & Decimals** — operations, comparisons, conversions, word problems
 2. **Percentage** — percentage of quantity, increase/decrease, discounts
 3. **Ratio & Proportion** — sharing, equivalent ratios, scaling
-4. **Rate / Unitary Reasoning** — unit rate, speed, multi-step
-5. **Measurement** — area, perimeter, volume of standard shapes
+4. **Rate / Unitary Reasoning** — unit rate, speed, multi-step work problems
+5. **Measurement** — area, perimeter, volume of standard and composite shapes
 6. **Data Handling** — mean/average, reading tables and graphs
+
+---
+
+## Evaluation Results
+
+Benchmark: 56 questions across all 6 topics.
+
+| Metric | Groq (Llama 3.1) | OpenAI (GPT-4o-mini) | Gemini (2.5 Flash) | Ollama (Llama 3.2) |
+|---|---|---|---|---|
+| Topic Classification | 100% | 100% | 100% | 100% |
+| Retrieval Precision | 67.9% | 67.9% | 67.9% | 67.9% |
+| Answer Correctness | 82.1% | 76.8% | 75.0% | 64.3% |
+
+Topic classification and retrieval are provider-independent (local embeddings + keyword classifier). Answer correctness varies by LLM capability.
+
+---
 
 ## Dataset Attribution
 
-This project uses the GSM8K dataset:
+This project uses the **GSM8K** dataset:
 
 - **Paper**: "Training Verifiers to Solve Math Word Problems" (Cobbe et al., 2021)
 - **Source**: OpenAI
 - **License**: MIT
 - **HuggingFace**: https://huggingface.co/datasets/openai/gsm8k
+
+---
+
+## License
+
+This project was developed for AAI3008 Large Language Models at the Singapore Institute of Technology.
