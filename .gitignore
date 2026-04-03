@@ -5,8 +5,13 @@ data/benchmark/evaluation_results.json
 data/benchmark/evaluation_results.csv
 data/benchmark/eval_*.json
 data/benchmark/eval_*.csv
+data/weak_topics.json
 __pycache__/
 *.pyc
 .DS_Store
 venv/
 .venv/
+.claude/
+STRESS_TEST_PROMPT.md
+*.pptx
+presentation_script.md

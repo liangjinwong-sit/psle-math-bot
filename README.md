@@ -243,14 +243,33 @@ Topic classification and retrieval are provider-independent (local embeddings + 
 
 ---
 
-## Dataset Attribution
+## References & Citations
 
-This project uses the **GSM8K** dataset:
+### Dataset
 
-- **Paper**: "Training Verifiers to Solve Math Word Problems" (Cobbe et al., 2021)
-- **Source**: OpenAI
-- **License**: MIT
-- **HuggingFace**: https://huggingface.co/datasets/openai/gsm8k
+- Cobbe, K., Kosaraju, V., Bavarian, M., Chen, M., Jun, H., Kaiser, L., Plappert, M., Tworek, J., Hilton, J., Nakano, R., Hesse, C., & Schulman, J. (2021). *Training Verifiers to Solve Math Word Problems*. arXiv:2110.14168. https://arxiv.org/abs/2110.14168
+  - Dataset: https://huggingface.co/datasets/openai/gsm8k (MIT License)
+
+### Models & Libraries
+
+- Reimers, N., & Gurevych, I. (2019). *Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks*. EMNLP 2019. https://arxiv.org/abs/1908.10084
+  - Model used: `all-MiniLM-L6-v2` via `sentence-transformers`
+- Johnson, J., Douze, M., & Jegou, H. (2019). *Billion-scale similarity search with GPUs*. IEEE Transactions on Big Data. https://arxiv.org/abs/1702.08734
+  - Library: FAISS (Facebook AI Similarity Search)
+- Chase, H. (2022). *LangChain*. https://github.com/langchain-ai/langchain
+
+### LLM Providers
+
+- Google DeepMind. *Gemini 2.5 Flash*. https://deepmind.google/technologies/gemini/flash/
+- OpenAI. *GPT-4o mini*. https://platform.openai.com/docs/models/gpt-4o-mini
+- Meta AI. *Llama 3.1* (via Groq). https://llama.meta.com/
+- Ollama. *Local LLM inference*. https://ollama.com/
+
+### Techniques
+
+- Yao, S., Zhao, J., Yu, D., Du, N., Shafran, I., Narasimhan, K., & Cao, Y. (2023). *ReAct: Synergizing Reasoning and Acting in Language Models*. ICLR 2023. https://arxiv.org/abs/2210.03629
+- Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Kuttler, H., Lewis, M., Yih, W., Rocktaschel, T., Riedel, S., & Kiela, D. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*. NeurIPS 2020. https://arxiv.org/abs/2005.11401
+- Zheng, L., Chiang, W.-L., Sheng, Y., Zhuang, S., Wu, Z., Zhuang, Y., Lin, Z., Li, Z., Li, D., Xing, E. P., Zhang, H., Gonzalez, J. E., & Stoica, I. (2023). *Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena*. NeurIPS 2023. https://arxiv.org/abs/2306.05685
 
 ---
 
