@@ -233,13 +233,13 @@ The classifier covers the 6 core PSLE math topic families:
 
 Benchmark: 56 questions across all 6 topics.
 
-| Metric | Groq (Llama 3.1) | OpenAI (GPT-4o-mini) | Gemini (2.5 Flash) | Ollama (Llama 3.2) |
+| Metric | Gemini (2.5 Flash) | Groq (Llama 3.1) | OpenAI (GPT-4o-mini) | Ollama (Llama 3.2) |
 |---|---|---|---|---|
 | Topic Classification | 100% | 100% | 100% | 100% |
 | Retrieval Precision | 67.9% | 67.9% | 67.9% | 67.9% |
-| Answer Correctness | 82.1% | 76.8% | 75.0% | 64.3% |
+| Answer Correctness | 92.9% | 83.9% | 75.0% | 66.1% |
 
-Topic classification and retrieval are provider-independent (local embeddings + keyword classifier). Answer correctness varies by LLM capability.
+Topic classification and retrieval are provider-independent (local embeddings + keyword classifier). Answer correctness varies by LLM capability and API tier — Gemini results above use the paid API key.
 
 ---
 
