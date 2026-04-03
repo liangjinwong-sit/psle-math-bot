@@ -241,6 +241,8 @@ Benchmark: 56 questions across all 6 topics.
 
 Topic classification and retrieval are provider-independent (local embeddings + keyword classifier). Answer correctness varies by LLM capability and API tier — Gemini results above use the paid API key.
 
+For the full evaluation breakdown (per-question results, response times, and LLM-as-judge scores), see [`demo_notebook.ipynb`](demo_notebook.ipynb).
+
 ---
 
 ## References & Citations
@@ -273,6 +275,5 @@ Topic classification and retrieval are provider-independent (local embeddings + 
 
 ---
 
-## License
 
 This project was developed for AAI3008 Large Language Models at the Singapore Institute of Technology.
